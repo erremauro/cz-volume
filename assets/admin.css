@@ -106,29 +106,110 @@
 
 .cz-add-chapter-controls {
 	margin: 12px 0 16px;
-	padding: 12px 14px;
-	border: 1px solid #dcdcde;
-	border-radius: 6px;
+	padding: 14px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
 	background: #fff;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
-.cz-add-inline-fields {
+#cz-selected-post-label {
+	margin: 0;
+	padding: 10px 12px;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #f6f7f7;
+}
+
+.cz-add-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(180px, 1fr));
+	gap: 10px 12px;
+	margin: 10px 0 8px;
+}
+
+.cz-add-field {
 	display: flex;
-	gap: 12px;
-	flex-wrap: wrap;
-	align-items: center;
-	margin: 10px 0 6px;
+	flex-direction: column;
+	gap: 4px;
 }
 
-.cz-add-inline-fields input[type="number"] {
-	width: 110px;
+.cz-add-field label {
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.4;
+	color: #1d2327;
+}
+
+.cz-add-field select,
+.cz-add-field input[type="number"],
+.cz-add-field input[type="text"] {
+	width: 100%;
+	min-height: 32px;
+}
+
+.cz-add-field-wide {
+	grid-column: span 2;
+}
+
+.cz-add-actions-row {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	margin: 8px 0 4px;
+	padding-top: 6px;
+	border-top: 1px solid #f0f0f1;
+}
+
+.cz-add-submit-row {
+	margin-top: 6px;
 }
 
 .cz-inline-checkbox {
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
-	margin-left: 8px;
+	margin-left: 0;
+}
+
+.cz-add-chapter-controls .description {
+	margin: 6px 0 0;
+	color: #50575e;
+}
+
+.cz-add-actions-row .cz-inline-help {
+	margin-left: 0;
+}
+
+.cz-chapter-number-inline {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.cz-chapter-number-editor[hidden] {
+	display: none !important;
+}
+
+@media (max-width: 1200px) {
+	.cz-add-grid {
+		grid-template-columns: repeat(2, minmax(180px, 1fr));
+	}
+
+	.cz-add-field-wide {
+		grid-column: span 2;
+	}
+}
+
+@media (max-width: 782px) {
+	.cz-add-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.cz-add-field-wide {
+		grid-column: span 1;
+	}
 }
 
 .cz-post-browser {

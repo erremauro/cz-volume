@@ -104,12 +104,24 @@ class CZ_Volume_REST {
 		$chapter_number = intval( $request->get_param( 'chapter_number' ) );
 		$position       = intval( $request->get_param( 'position' ) );
 		$is_primary     = $request->get_param( 'is_primary' ) ? 1 : 0;
+		$entry_type     = sanitize_key( (string) $request->get_param( 'entry_type' ) );
+		$section_label  = sanitize_text_field( (string) $request->get_param( 'section_label' ) );
 
-		if ( ! $this->is_valid_volume( $volume_id ) || ! $this->is_valid_post( $post_id ) || $chapter_number <= 0 ) {
+		if ( ! in_array( $entry_type, array( 'chapter', 'front_matter', 'back_matter' ), true ) ) {
+			$entry_type = 'chapter';
+		}
+
+		if ( ! $this->is_valid_volume( $volume_id ) || ! $this->is_valid_post( $post_id ) ) {
+			return new WP_Error( 'cz_invalid_data', __( 'Dati non validi.', 'cz-volume' ), array( 'status' => 400 ) );
+		}
+		if ( 'chapter' === $entry_type && $chapter_number <= 0 ) {
+			return new WP_Error( 'cz_invalid_data', __( 'Dati non validi.', 'cz-volume' ), array( 'status' => 400 ) );
+		}
+		if ( 'chapter' !== $entry_type && '' === $section_label ) {
 			return new WP_Error( 'cz_invalid_data', __( 'Dati non validi.', 'cz-volume' ), array( 'status' => 400 ) );
 		}
 
-		$ok = $this->manager->add_chapter( $volume_id, $post_id, $chapter_number, $position, $is_primary );
+		$ok = $this->manager->add_chapter( $volume_id, $post_id, $chapter_number, $position, $is_primary, $entry_type, $section_label );
 		if ( ! $ok ) {
 			return new WP_Error( 'cz_add_failed', __( 'Impossibile aggiungere il capitolo.', 'cz-volume' ), array( 'status' => 500 ) );
 		}

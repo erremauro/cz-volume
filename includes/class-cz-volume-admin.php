@@ -29,7 +29,9 @@ class CZ_Volume_Admin {
 		add_filter( 'post_row_actions', array( $this, 'add_volume_manage_row_action' ), 10, 2 );
 
 		add_action( 'wp_ajax_cz_add_chapter', array( $this, 'ajax_add_chapter' ) );
+		add_action( 'wp_ajax_cz_get_chapters', array( $this, 'ajax_get_chapters' ) );
 		add_action( 'wp_ajax_cz_remove_chapter', array( $this, 'ajax_remove_chapter' ) );
+		add_action( 'wp_ajax_cz_update_chapter_number', array( $this, 'ajax_update_chapter_number' ) );
 		add_action( 'wp_ajax_cz_update_positions', array( $this, 'ajax_update_positions' ) );
 		add_action( 'wp_ajax_cz_search_posts', array( $this, 'ajax_search_posts' ) );
 	}
@@ -95,8 +97,10 @@ class CZ_Volume_Admin {
 					'searchEmpty'   => __( 'Nessun post trovato.', 'cz-volume' ),
 					'dragHandle'    => __( 'Trascina per riordinare', 'cz-volume' ),
 					'remove'        => __( 'Rimuovi', 'cz-volume' ),
+					'update'        => __( 'Aggiorna', 'cz-volume' ),
 					'yes'           => __( 'Si', 'cz-volume' ),
 					'no'            => __( 'No', 'cz-volume' ),
+					'invalidChapterNumber' => __( 'Numero capitolo non valido.', 'cz-volume' ),
 					'postNotFound'  => __( '(post non trovato)', 'cz-volume' ),
 					'noChapters'    => __( 'Nessun capitolo trovato per questo volume.', 'cz-volume' ),
 					'alreadyAdded'  => __( 'Gia nel volume', 'cz-volume' ),
@@ -114,6 +118,9 @@ class CZ_Volume_Admin {
 					'loading'       => __( 'Caricamento post...', 'cz-volume' ),
 					'clearAuthor'   => __( 'Rimuovi filtro autore', 'cz-volume' ),
 					'pageLabel'     => __( 'Pagina', 'cz-volume' ),
+					'entryTypeChapter' => __( 'Capitolo', 'cz-volume' ),
+					'entryTypeFront'   => __( 'Sezione iniziale', 'cz-volume' ),
+					'entryTypeBack'    => __( 'Sezione finale', 'cz-volume' ),
 				),
 			)
 		);
@@ -378,19 +385,40 @@ class CZ_Volume_Admin {
 			echo '<p id="cz-selected-post-label"><strong>' . esc_html__( 'Nessun post selezionato.', 'cz-volume' ) . '</strong></p>';
 			echo '<p class="description">' . esc_html__( 'Seleziona un post dalla tabella sotto, poi clicca "Aggiungi Capitolo".', 'cz-volume' ) . '</p>';
 
-			echo '<div class="cz-add-inline-fields">';
-			echo '<label for="cz-chapter-number"><strong>' . esc_html__( 'Numero Capitolo', 'cz-volume' ) . '</strong></label>';
-			echo '<input type="number" id="cz-chapter-number" name="chapter_number" min="1" step="1" required />';
-
-			echo '<label for="cz-position"><strong>' . esc_html__( 'Posizione', 'cz-volume' ) . '</strong></label>';
-			echo '<input type="number" id="cz-position" name="position" min="0" step="1" value="0" />';
-
-			echo '<label for="cz-is-primary" class="cz-inline-checkbox"><input type="checkbox" id="cz-is-primary" name="is_primary" value="1" checked="checked" /> ';
-			echo esc_html__( 'Volume Principale', 'cz-volume' ) . '</label>';
+			echo '<div class="cz-add-grid">';
+			echo '<div class="cz-add-field">';
+			echo '<label for="cz-entry-type"><strong>' . esc_html__( 'Tipo Voce', 'cz-volume' ) . '</strong></label>';
+			echo '<select id="cz-entry-type" name="entry_type">';
+			echo '<option value="chapter">' . esc_html__( 'Capitolo numerato', 'cz-volume' ) . '</option>';
+			echo '<option value="front_matter">' . esc_html__( 'Sezione iniziale', 'cz-volume' ) . '</option>';
+			echo '<option value="back_matter">' . esc_html__( 'Sezione finale', 'cz-volume' ) . '</option>';
+			echo '</select>';
 			echo '</div>';
 
-			echo '<p class="description">' . esc_html__( 'Se attivo, disattiva automaticamente il Volume Principale negli altri volumi dello stesso capitolo.', 'cz-volume' ) . '</p>';
-			echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Aggiungi Capitolo', 'cz-volume' ) . '</button></p>';
+			echo '<div class="cz-add-field" id="cz-field-chapter-number">';
+			echo '<label for="cz-chapter-number"><strong>' . esc_html__( 'Numero Capitolo', 'cz-volume' ) . '</strong></label>';
+			echo '<input type="number" id="cz-chapter-number" name="chapter_number" min="1" step="1" required />';
+			echo '</div>';
+
+			echo '<div class="cz-add-field cz-add-field-wide" id="cz-field-section-label">';
+			echo '<label for="cz-section-label"><strong>' . esc_html__( 'Etichetta Sezione', 'cz-volume' ) . '</strong></label>';
+			echo '<input type="text" id="cz-section-label" name="section_label" value="" placeholder="' . esc_attr__( 'Es. Introduzione, Ringraziamenti, Appendice A', 'cz-volume' ) . '" />';
+			echo '</div>';
+
+			echo '<div class="cz-add-field">';
+			echo '<label for="cz-position"><strong>' . esc_html__( 'Posizione', 'cz-volume' ) . '</strong></label>';
+			echo '<input type="number" id="cz-position" name="position" min="0" step="1" value="0" />';
+			echo '</div>';
+			echo '</div>';
+
+			echo '<div class="cz-add-actions-row">';
+			echo '<label for="cz-is-primary" class="cz-inline-checkbox"><input type="checkbox" id="cz-is-primary" name="is_primary" value="1" checked="checked" /> ';
+			echo esc_html__( 'Volume Principale', 'cz-volume' ) . '</label>';
+			echo '<p class="description cz-inline-help">' . esc_html__( 'Se attivo, disattiva automaticamente il Volume Principale negli altri volumi dello stesso capitolo.', 'cz-volume' ) . '</p>';
+			echo '</div>';
+			echo '<div class="cz-add-submit-row">';
+			echo '<button type="submit" class="button button-primary">' . esc_html__( 'Aggiungi Capitolo', 'cz-volume' ) . '</button>';
+			echo '</div>';
 			echo '</div>';
 			echo '</form>';
 
@@ -453,6 +481,8 @@ class CZ_Volume_Admin {
 		$chapter_number = isset( $_POST['chapter_number'] ) ? intval( wp_unslash( $_POST['chapter_number'] ) ) : 0;
 		$position_raw   = isset( $_POST['position'] ) ? trim( (string) wp_unslash( $_POST['position'] ) ) : '';
 		$is_primary     = isset( $_POST['is_primary'] ) ? 1 : 0;
+		$entry_type     = isset( $_POST['entry_type'] ) ? sanitize_key( wp_unslash( $_POST['entry_type'] ) ) : 'chapter';
+		$section_label  = isset( $_POST['section_label'] ) ? sanitize_text_field( wp_unslash( $_POST['section_label'] ) ) : '';
 
 		if ( ! $this->is_valid_volume( $volume_id ) ) {
 			wp_send_json_error( array( 'message' => __( 'Volume non valido.', 'cz-volume' ) ), 400 );
@@ -462,16 +492,23 @@ class CZ_Volume_Admin {
 			wp_send_json_error( array( 'message' => __( 'Post non valido.', 'cz-volume' ) ), 400 );
 		}
 
-		if ( $chapter_number <= 0 ) {
-			wp_send_json_error( array( 'message' => __( 'Numero capitolo non valido.', 'cz-volume' ) ), 400 );
+		if ( ! in_array( $entry_type, array( 'chapter', 'front_matter', 'back_matter' ), true ) ) {
+			$entry_type = 'chapter';
 		}
 
-		$position = ( '' === $position_raw ) ? $chapter_number : intval( $position_raw );
+		if ( 'chapter' === $entry_type && $chapter_number <= 0 ) {
+			wp_send_json_error( array( 'message' => __( 'Numero capitolo non valido.', 'cz-volume' ) ), 400 );
+		}
+		if ( 'chapter' !== $entry_type && '' === $section_label ) {
+			wp_send_json_error( array( 'message' => __( 'Etichetta sezione obbligatoria.', 'cz-volume' ) ), 400 );
+		}
+
+		$position = ( '' === $position_raw ) ? $this->get_next_position_for_volume( $volume_id ) : intval( $position_raw );
 		if ( $position < 0 ) {
 			wp_send_json_error( array( 'message' => __( 'Posizione non valida.', 'cz-volume' ) ), 400 );
 		}
 
-		$ok = $this->manager->add_chapter( $volume_id, $post_id, $chapter_number, $position, $is_primary );
+		$ok = $this->manager->add_chapter( $volume_id, $post_id, $chapter_number, $position, $is_primary, $entry_type, $section_label );
 		if ( ! $ok ) {
 			wp_send_json_error( array( 'message' => __( 'Impossibile aggiungere il capitolo.', 'cz-volume' ) ), 500 );
 		}
@@ -479,6 +516,21 @@ class CZ_Volume_Admin {
 		wp_send_json_success(
 			array(
 				'message'  => __( 'Capitolo aggiunto.', 'cz-volume' ),
+				'chapters' => $this->manager->get_chapters( $volume_id ),
+			)
+		);
+	}
+
+	public function ajax_get_chapters() {
+		$this->assert_ajax_permissions();
+
+		$volume_id = isset( $_POST['volume_id'] ) ? absint( wp_unslash( $_POST['volume_id'] ) ) : 0;
+		if ( ! $this->is_valid_volume( $volume_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Volume non valido.', 'cz-volume' ) ), 400 );
+		}
+
+		wp_send_json_success(
+			array(
 				'chapters' => $this->manager->get_chapters( $volume_id ),
 			)
 		);
@@ -529,7 +581,7 @@ class CZ_Volume_Admin {
 				$next_chapter_n = $max_chapter + 1;
 			}
 
-			$this->manager->add_chapter( (int) $volume_id, (int) $post_id, $next_chapter_n, $next_position, 0 );
+			$this->manager->add_chapter( (int) $volume_id, (int) $post_id, $next_chapter_n, $next_position, 0, 'chapter', '' );
 		}
 
 		$primary_volume_id = ! empty( $selected_volume_ids ) ? (int) $selected_volume_ids[0] : 0;
@@ -605,6 +657,34 @@ class CZ_Volume_Admin {
 		wp_send_json_success(
 			array(
 				'message'  => __( 'Capitolo rimosso.', 'cz-volume' ),
+				'chapters' => $this->manager->get_chapters( $volume_id ),
+			)
+		);
+	}
+
+	public function ajax_update_chapter_number() {
+		$this->assert_ajax_permissions();
+
+		$volume_id      = isset( $_POST['volume_id'] ) ? absint( wp_unslash( $_POST['volume_id'] ) ) : 0;
+		$post_id        = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
+		$chapter_number = isset( $_POST['chapter_number'] ) ? intval( wp_unslash( $_POST['chapter_number'] ) ) : 0;
+
+		if ( ! $this->is_valid_volume( $volume_id ) || ! $post_id ) {
+			wp_send_json_error( array( 'message' => __( 'Dati non validi.', 'cz-volume' ) ), 400 );
+		}
+
+		if ( $chapter_number <= 0 ) {
+			wp_send_json_error( array( 'message' => __( 'Numero capitolo non valido.', 'cz-volume' ) ), 400 );
+		}
+
+		$ok = $this->manager->update_chapter_number( $volume_id, $post_id, $chapter_number );
+		if ( ! $ok ) {
+			wp_send_json_error( array( 'message' => __( 'Impossibile aggiornare il numero capitolo.', 'cz-volume' ) ), 400 );
+		}
+
+		wp_send_json_success(
+			array(
+				'message'  => __( 'Numero capitolo aggiornato.', 'cz-volume' ),
 				'chapters' => $this->manager->get_chapters( $volume_id ),
 			)
 		);
@@ -825,5 +905,20 @@ class CZ_Volume_Admin {
 	private function is_valid_post( $post_id ) {
 		$post = get_post( $post_id );
 		return $post && 'post' === $post->post_type;
+	}
+
+	private function get_next_position_for_volume( $volume_id ) {
+		$volume_id = absint( $volume_id );
+		if ( ! $volume_id ) {
+			return 0;
+		}
+
+		$chapters = $this->manager->get_chapters( $volume_id );
+		if ( empty( $chapters ) ) {
+			return 0;
+		}
+
+		$max_position = max( array_map( 'intval', wp_list_pluck( $chapters, 'position' ) ) );
+		return $max_position + 1;
 	}
 }

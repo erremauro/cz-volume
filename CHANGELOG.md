@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] 2026-02-13
+### Added
+- Supporto voci non numerate in `Gestione Capitoli` con `Tipo Voce` (`Sezione iniziale` / `Sezione finale`) ed `Etichetta Sezione`.
+- In `Capitoli del Volume` aggiunta modifica inline del `Numero Capitolo` per le voci numerate già in elenco.
+- In `Capitoli del Volume` ordinamento colonne gestito in AJAX senza ricarica completa della pagina.
+### Changed
+- Migrazione schema DB: aggiunte colonne `entry_type` e `section_label` con default retrocompatibili.
+
 ## [1.2.1] 2026-02-13
 ### Fixed
 - Ricerca in `Elenco Post` aggiornata con match su `Titolo + Autore`
@@ -60,7 +68,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cleanup controllato in deactivation/uninstall.
 
 
-[Unreleased]: https://github.com/erremauro/cz-volume/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/erremauro/cz-volume/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.3.0
+[1.2.1]: https://github.com/erremauro/cz-volume/releases/tag/v1.2.1
 [1.2.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.2.0
 [1.1.1]: https://github.com/erremauro/cz-volume/releases/tag/v1.1.1
 [1.1.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.1.0

@@ -35,7 +35,7 @@ class CZ_Volume_List_Table extends WP_List_Table {
 	public function get_columns() {
 		return array(
 			'position'       => __( 'Posizione', 'cz-volume' ),
-			'chapter_number' => __( 'Capitolo', 'cz-volume' ),
+			'chapter_number' => __( 'Capitolo/Sezione', 'cz-volume' ),
 			'post_title'     => __( 'Titolo Post', 'cz-volume' ),
 			'is_primary'     => __( 'Volume Principale', 'cz-volume' ),
 			'actions'        => __( 'Azioni', 'cz-volume' ),
@@ -99,7 +99,30 @@ class CZ_Volume_List_Table extends WP_List_Table {
 	}
 
 	public function column_chapter_number( $item ) {
-		return esc_html( isset( $item['chapter_number'] ) ? (string) intval( $item['chapter_number'] ) : '' );
+		$entry_type    = isset( $item['entry_type'] ) ? sanitize_key( (string) $item['entry_type'] ) : 'chapter';
+		$section_label = isset( $item['section_label'] ) ? (string) $item['section_label'] : '';
+		$chapter_num   = isset( $item['chapter_number'] ) ? intval( $item['chapter_number'] ) : 0;
+		$post_id       = isset( $item['post_id'] ) ? absint( $item['post_id'] ) : 0;
+
+		if ( 'chapter' === $entry_type ) {
+			return '<div class="cz-chapter-number-inline">' .
+				'<button type="button" class="button-link cz-chapter-number-link" data-post-id="' . esc_attr( (string) $post_id ) . '">' . esc_html( (string) $chapter_num ) . '</button>' .
+				'<span class="cz-chapter-number-editor" hidden>' .
+					'<input type="number" class="small-text cz-chapter-number-input" min="1" step="1" value="' . esc_attr( (string) $chapter_num ) . '" data-post-id="' . esc_attr( (string) $post_id ) . '" /> ' .
+					'<button type="button" class="button button-small cz-save-chapter-number" data-post-id="' . esc_attr( (string) $post_id ) . '">' . esc_html__( 'Aggiorna', 'cz-volume' ) . '</button>' .
+				'</span>' .
+			'</div>';
+		}
+
+		if ( '' !== $section_label ) {
+			return esc_html( $section_label );
+		}
+
+		if ( 'front_matter' === $entry_type ) {
+			return esc_html__( 'Sezione iniziale', 'cz-volume' );
+		}
+
+		return esc_html__( 'Sezione finale', 'cz-volume' );
 	}
 
 	public function column_post_title( $item ) {
@@ -130,11 +153,15 @@ class CZ_Volume_List_Table extends WP_List_Table {
 
 	public function column_actions( $item ) {
 		$post_id = isset( $item['post_id'] ) ? absint( $item['post_id'] ) : 0;
+		$entry_type = isset( $item['entry_type'] ) ? sanitize_key( (string) $item['entry_type'] ) : 'chapter';
 		if ( ! $post_id ) {
 			return '';
 		}
 
-		return '<button type="button" class="button button-small cz-remove-chapter" data-post-id="' . esc_attr( (string) $post_id ) . '">' . esc_html__( 'Rimuovi', 'cz-volume' ) . '</button>';
+		$actions = array();
+		$actions[] = '<button type="button" class="button button-small cz-remove-chapter" data-post-id="' . esc_attr( (string) $post_id ) . '">' . esc_html__( 'Rimuovi', 'cz-volume' ) . '</button>';
+
+		return implode( ' ', $actions );
 	}
 
 	public function no_items() {
@@ -143,7 +170,8 @@ class CZ_Volume_List_Table extends WP_List_Table {
 
 	public function single_row( $item ) {
 		$post_id = isset( $item['post_id'] ) ? absint( $item['post_id'] ) : 0;
-		echo '<tr data-post-id="' . esc_attr( (string) $post_id ) . '">';
+		$entry_type = isset( $item['entry_type'] ) ? sanitize_key( (string) $item['entry_type'] ) : 'chapter';
+		echo '<tr data-post-id="' . esc_attr( (string) $post_id ) . '" data-entry-type="' . esc_attr( $entry_type ) . '">';
 		$this->single_row_columns( $item );
 		echo '</tr>';
 	}

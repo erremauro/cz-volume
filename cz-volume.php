@@ -2,7 +2,7 @@
 /**
  * Plugin Name: CZ Volume
  * Description: Gestione volumi e capitoli con numerazione per volume.
- * Version: 1.1.0
+ * Version: 1.2.2
  * Author: CZ
  * Text Domain: cz-volume
  */
@@ -11,8 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CZ_VOLUME_VERSION', '1.1.0' );
-define( 'CZ_VOLUME_DB_VERSION', '1.1.0' );
+define( 'CZ_VOLUME_VERSION', '1.2.2' );
+define( 'CZ_VOLUME_DB_VERSION', '1.2.2' );
 define( 'CZ_VOLUME_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CZ_VOLUME_URL', plugin_dir_url( __FILE__ ) );
 
