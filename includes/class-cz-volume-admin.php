@@ -697,7 +697,9 @@ class CZ_Volume_Admin {
 		);
 
 		if ( '' !== $term ) {
-			$args['s'] = $term;
+			$args['cz_volume_title_author_search'] = $term;
+			add_filter( 'posts_join', array( $this, 'filter_posts_join_title_author_search' ), 10, 2 );
+			add_filter( 'posts_where', array( $this, 'filter_posts_where_title_author_search' ), 10, 2 );
 		}
 
 		if ( $author_id ) {
@@ -709,6 +711,10 @@ class CZ_Volume_Admin {
 		}
 
 		$query = new WP_Query( $args );
+		if ( '' !== $term ) {
+			remove_filter( 'posts_join', array( $this, 'filter_posts_join_title_author_search' ), 10 );
+			remove_filter( 'posts_where', array( $this, 'filter_posts_where_title_author_search' ), 10 );
+		}
 		$items = array();
 
 		if ( $query->have_posts() ) {
@@ -764,6 +770,40 @@ class CZ_Volume_Admin {
 
 		$status_object = get_post_status_object( $status );
 		return ( $status_object && isset( $status_object->label ) ) ? $status_object->label : $status;
+	}
+
+	public function filter_posts_join_title_author_search( $join, $query ) {
+		global $wpdb;
+
+		$term = $query->get( 'cz_volume_title_author_search' );
+		if ( ! is_string( $term ) || '' === $term ) {
+			return $join;
+		}
+
+		$users_join = " LEFT JOIN {$wpdb->users} AS czv_users ON czv_users.ID = {$wpdb->posts}.post_author ";
+		if ( false === strpos( $join, 'AS czv_users' ) ) {
+			$join .= $users_join;
+		}
+
+		return $join;
+	}
+
+	public function filter_posts_where_title_author_search( $where, $query ) {
+		global $wpdb;
+
+		$term = $query->get( 'cz_volume_title_author_search' );
+		if ( ! is_string( $term ) || '' === $term ) {
+			return $where;
+		}
+
+		$like  = '%' . $wpdb->esc_like( $term ) . '%';
+		$where .= $wpdb->prepare(
+			" AND ( {$wpdb->posts}.post_title LIKE %s OR czv_users.display_name LIKE %s )",
+			$like,
+			$like
+		);
+
+		return $where;
 	}
 
 	private function assert_ajax_permissions() {
