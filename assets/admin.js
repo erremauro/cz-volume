@@ -15,57 +15,307 @@
 			});
 	}
 
-	function renderSearchResults(items) {
-		var $tbody = $('#cz-search-results-body');
-		var selectedId = parseInt($('#cz-post-id').val(), 10) || 0;
-		var foundSelected = false;
-		$tbody.empty();
+	function escapeHtml(value) {
+		return $('<div>').text(value || '').html();
+	}
 
-		if (!items || !items.length) {
-			$tbody.append('<tr><td colspan="4">' + CZVolumeAdmin.i18n.searchEmpty + '</td></tr>');
+	function getChapterRows($tableBody) {
+		if ($tableBody.length) {
+			return $tableBody;
+		}
+		return $('.wp-list-table.chapters tbody');
+	}
+
+	function renderChaptersTable(chapters) {
+		var $tbody = getChapterRows($('.wp-list-table.chapters tbody'));
+		var items = $.isArray(chapters) ? chapters.slice(0) : [];
+
+		if (!$tbody.length) {
 			return;
 		}
 
-		$.each(items, function (_, item) {
-			var title = $('<div>').text(item.title).html();
-			var status = $('<div>').text(item.status).html();
-			var actionHtml = item.already_added
-				? '<span class="cz-tag-added">Gia nel volume</span>'
-				: '<span class="cz-tag-available">Disponibile</span>';
-			var selectableClass = item.already_added ? '' : ' is-selectable';
-			var selectedClass = selectedId && selectedId === item.id ? ' is-selected' : '';
-
-			if (selectedClass) {
-				foundSelected = true;
+		items.sort(function (a, b) {
+			var posA = parseInt(a.position, 10) || 0;
+			var posB = parseInt(b.position, 10) || 0;
+			if (posA !== posB) {
+				return posA - posB;
 			}
+			return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0);
+		});
+
+		$tbody.empty();
+
+		if (!items.length) {
+			$tbody.append('<tr class="no-items"><td class="colspanchange" colspan="5">' + escapeHtml(CZVolumeAdmin.i18n.noChapters) + '</td></tr>');
+			return;
+		}
+
+		$.each(items, function (_, chapter) {
+			var postId = parseInt(chapter.post_id, 10) || 0;
+			var chapterNumber = parseInt(chapter.chapter_number, 10) || 0;
+			var position = parseInt(chapter.position, 10) || 0;
+			var title = escapeHtml(chapter.post_title || CZVolumeAdmin.i18n.postNotFound);
+			var isPrimary = parseInt(chapter.is_primary, 10) === 1;
+			var editUrl = CZVolumeAdmin.editPostBaseUrl + '?post=' + postId + '&action=edit';
+			var titleHtml = postId ? '<a href="' + escapeHtml(editUrl) + '">' + title + '</a>' : title;
+			var primaryHtml = isPrimary
+				? '<span class="cz-tag-available">' + escapeHtml(CZVolumeAdmin.i18n.yes) + '</span>'
+				: '<span class="cz-tag-added">' + escapeHtml(CZVolumeAdmin.i18n.no) + '</span>';
+			var removeButton = postId
+				? '<button type="button" class="button button-small cz-remove-chapter" data-post-id="' + postId + '">' + escapeHtml(CZVolumeAdmin.i18n.remove) + '</button>'
+				: '';
 
 			$tbody.append(
-				'<tr class="cz-search-row' + selectableClass + selectedClass + '" data-post-id="' + item.id + '" data-post-title="' + title + '">' +
-					'<td class="cz-cell-id"><span class="cz-id-badge">#' + item.id + '</span></td>' +
-					'<td class="cz-cell-title">' + title + '</td>' +
-					'<td class="cz-cell-status"><span class="cz-status-pill">' + status + '</span></td>' +
-					'<td class="cz-cell-action">' + actionHtml + '</td>' +
+				'<tr data-post-id="' + postId + '">' +
+					'<td class="position column-position" data-colname="Posizione">' +
+						'<span class="cz-drag-handle" title="' + escapeHtml(CZVolumeAdmin.i18n.dragHandle) + '">&#9776;</span> ' + position +
+					'</td>' +
+					'<td class="chapter_number column-chapter_number" data-colname="Capitolo">' + chapterNumber + '</td>' +
+					'<td class="post_title column-post_title" data-colname="Titolo Post">' + titleHtml + '</td>' +
+					'<td class="is_primary column-is_primary" data-colname="Volume Principale">' + primaryHtml + '</td>' +
+					'<td class="actions column-actions" data-colname="Azioni">' + removeButton + '</td>' +
 				'</tr>'
 			);
 		});
+	}
 
-		if (selectedId && !foundSelected) {
-			$('#cz-post-id').val('');
+	function renderSelectedPostLabel(postTitle) {
+		var $label = $('#cz-selected-post-label');
+		if (!$label.length) {
+			return;
 		}
+
+		if (!postTitle) {
+			$label.html('<strong>' + escapeHtml(CZVolumeAdmin.i18n.noneSelected) + '</strong>');
+			return;
+		}
+
+		$label.html('<strong>' + escapeHtml(CZVolumeAdmin.i18n.selectedPost) + '</strong> ' + escapeHtml(postTitle));
 	}
 
 	$(function () {
-		var $tbody = $('.wp-list-table tbody');
+		var $chaptersTbody = $('.wp-list-table.chapters tbody');
 		var searchTimer = null;
+		var $chapterNumber = $('#cz-chapter-number');
+		var $positionInput = $('#cz-position');
+		var positionAutoMode = true;
+		var $postSearchBody = $('#cz-search-results-body');
+		var $postViews = $('#cz-post-views');
+		var $postPagination = $('#cz-posts-pagination');
+		var $authorFilter = $('#cz-post-author-filter');
+		var $availabilityFilter = $('#cz-post-availability-filter');
+		var browserState = {
+			status: 'all',
+			authorId: 0,
+			authorName: '',
+			term: '',
+			page: 1,
+			perPage: 20,
+			orderBy: 'date',
+			order: 'desc',
+			availability: 'all'
+		};
 
-		if ($tbody.length && CZVolumeAdmin.volumeId) {
-			$tbody.sortable({
+		function renderSortHeaders() {
+			var $sortableHeaders = $('#cz-post-browser .cz-sort-link');
+			if (!$sortableHeaders.length) {
+				return;
+			}
+
+			$sortableHeaders.each(function () {
+				var $link = $(this);
+				var orderBy = String($link.data('orderby') || '');
+				var $th = $link.closest('th');
+				var isCurrent = (orderBy === browserState.orderBy);
+
+				if (isCurrent) {
+					$th.removeClass('sortable asc desc').addClass('sorted ' + browserState.order);
+					$link.attr('data-order', browserState.order === 'asc' ? 'desc' : 'asc');
+					$th.attr('aria-sort', browserState.order === 'asc' ? 'ascending' : 'descending');
+					return;
+				}
+
+				$th.removeClass('sorted asc').addClass('sortable desc');
+				$link.attr('data-order', 'asc');
+				$th.removeAttr('aria-sort');
+			});
+		}
+
+		function renderPostViews(counts) {
+			if (!$postViews.length) {
+				return;
+			}
+
+			var allCount = (counts && counts.all) || 0;
+			var publishCount = (counts && counts.publish) || 0;
+			var draftCount = (counts && counts.draft) || 0;
+
+			function viewLink(status, label, count) {
+				var currentClass = browserState.status === status ? ' current' : '';
+				return '<a href="#" class="cz-post-view-link' + currentClass + '" data-status="' + status + '">' +
+					escapeHtml(label) + ' <span class="count">(' + count + ')</span>' +
+				'</a>';
+			}
+
+			$postViews.html(
+				viewLink('all', CZVolumeAdmin.i18n.all, allCount) + ' | ' +
+				viewLink('publish', CZVolumeAdmin.i18n.published, publishCount) + ' | ' +
+				viewLink('draft', CZVolumeAdmin.i18n.draft, draftCount)
+			);
+		}
+
+		function renderAuthorFilter() {
+			if (!$authorFilter.length) {
+				return;
+			}
+
+			if (!browserState.authorId) {
+				$authorFilter.attr('hidden', true).empty();
+				return;
+			}
+
+			$authorFilter.html(
+				'<span class="cz-author-filter-chip">' +
+					escapeHtml(CZVolumeAdmin.i18n.author) + ': ' + escapeHtml(browserState.authorName) +
+					' <button type="button" class="cz-clear-author-filter" id="cz-clear-author-filter" aria-label="' + escapeHtml(CZVolumeAdmin.i18n.clearAuthor) + '">×</button>' +
+				'</span>'
+			).attr('hidden', false);
+		}
+
+		function renderPostRows(items) {
+			var selectedId = parseInt($('#cz-post-id').val(), 10) || 0;
+			var list = $.isArray(items) ? items : [];
+
+			if (!$postSearchBody.length) {
+				return;
+			}
+
+			$postSearchBody.empty();
+
+			if (!list.length) {
+				$postSearchBody.append('<tr><td colspan="4">' + escapeHtml(CZVolumeAdmin.i18n.searchEmpty) + '</td></tr>');
+				return;
+			}
+
+			$.each(list, function (_, item) {
+				var postId = parseInt(item.id, 10) || 0;
+				var alreadyAdded = !!item.already_added;
+				var rowSelectable = alreadyAdded ? '' : ' is-selectable';
+				var rowSelected = (!alreadyAdded && selectedId === postId) ? ' is-selected' : '';
+				var authorName = escapeHtml(item.author_name || '—');
+				var title = escapeHtml(item.title || CZVolumeAdmin.i18n.postNotFound);
+				var availability = alreadyAdded
+					? '<span class="cz-tag-added">' + escapeHtml(CZVolumeAdmin.i18n.alreadyAdded) + '</span>'
+					: '<span class="cz-tag-available">' + escapeHtml(CZVolumeAdmin.i18n.available) + '</span>';
+				var statusLabel = escapeHtml(item.status_label || item.status || '');
+				var authorButton = item.author_id
+					? '<button type="button" class="button-link cz-author-link" data-author-id="' + parseInt(item.author_id, 10) + '" data-author-name="' + authorName + '">' + authorName + '</button>'
+					: '—';
+				var hasPrimaryVolume = !!item.has_primary_volume;
+
+				$postSearchBody.append(
+					'<tr class="cz-search-row' + rowSelectable + rowSelected + '" data-post-id="' + postId + '" data-post-title="' + title + '" data-has-primary-volume="' + (hasPrimaryVolume ? '1' : '0') + '">' +
+						'<td class="cz-cell-title"><strong>' + title + '</strong></td>' +
+						'<td class="cz-cell-author">' + authorButton + '</td>' +
+						'<td class="cz-cell-status"><span class="cz-status-pill">' + statusLabel + '</span></td>' +
+						'<td class="cz-cell-availability">' + availability + '</td>' +
+					'</tr>'
+				);
+			});
+		}
+
+		function getNextChapterNumber() {
+			var maxChapter = 0;
+
+			$('.wp-list-table.chapters tbody tr').each(function () {
+				var chapterText = $.trim($(this).find('td.column-chapter_number').first().text());
+				var chapterNumber = parseInt(chapterText, 10) || 0;
+				if (chapterNumber > maxChapter) {
+					maxChapter = chapterNumber;
+				}
+			});
+
+			return Math.max(1, maxChapter + 1);
+		}
+
+		function renderPostPagination(pagination) {
+			if (!$postPagination.length) {
+				return;
+			}
+
+			var currentPage = (pagination && pagination.current_page) ? parseInt(pagination.current_page, 10) : 1;
+			var totalPages = (pagination && pagination.total_pages) ? parseInt(pagination.total_pages, 10) : 1;
+
+			if (totalPages <= 1) {
+				$postPagination.empty();
+				return;
+			}
+
+			var prevDisabled = currentPage <= 1 ? ' disabled' : '';
+			var nextDisabled = currentPage >= totalPages ? ' disabled' : '';
+
+			$postPagination.html(
+				'<button type="button" class="button cz-post-page" data-page="' + (currentPage - 1) + '"' + prevDisabled + '>‹</button>' +
+				'<span class="cz-page-indicator">' + escapeHtml(CZVolumeAdmin.i18n.pageLabel) + ' ' + currentPage + ' / ' + totalPages + '</span>' +
+				'<button type="button" class="button cz-post-page" data-page="' + (currentPage + 1) + '"' + nextDisabled + '>›</button>'
+			);
+		}
+
+		function loadAvailablePosts() {
+			if (!CZVolumeAdmin.volumeId || !$postSearchBody.length) {
+				return;
+			}
+
+			$postSearchBody.html('<tr><td colspan="4">' + escapeHtml(CZVolumeAdmin.i18n.loading) + '</td></tr>');
+
+			ajaxRequest(
+				{
+					action: 'cz_search_posts',
+					nonce: CZVolumeAdmin.nonce,
+					volume_id: CZVolumeAdmin.volumeId,
+					term: browserState.term,
+					status: browserState.status,
+					author_id: browserState.authorId,
+					page: browserState.page,
+					per_page: browserState.perPage,
+					orderby: browserState.orderBy,
+					order: browserState.order,
+					availability: browserState.availability
+				},
+				function (response) {
+					var data = response && response.data ? response.data : {};
+					var filters = data.filters || {};
+
+					if (filters.orderby) {
+						browserState.orderBy = String(filters.orderby);
+					}
+					if (filters.order) {
+						browserState.order = String(filters.order).toLowerCase() === 'asc' ? 'asc' : 'desc';
+					}
+					if (filters.availability) {
+						browserState.availability = String(filters.availability) === 'available' ? 'available' : 'all';
+					}
+					if ($availabilityFilter.length) {
+						$availabilityFilter.val(browserState.availability);
+					}
+
+					renderPostViews(data.views || {});
+					renderSortHeaders();
+					renderPostRows(data.items || []);
+					renderPostPagination(data.pagination || {});
+					renderAuthorFilter();
+				}
+			);
+		}
+
+		if ($chaptersTbody.length && CZVolumeAdmin.volumeId) {
+			$chaptersTbody.sortable({
 				handle: '.cz-drag-handle',
 				items: 'tr',
 				axis: 'y',
 				update: function () {
 					var positions = [];
-					$tbody.find('tr').each(function () {
+					$chaptersTbody.find('tr').each(function () {
 						var postId = $(this).data('post-id');
 						if (postId) {
 							positions.push(postId);
@@ -104,47 +354,123 @@
 					volume_id: CZVolumeAdmin.volumeId,
 					post_id: postId
 				},
-				function () {
-					window.location.reload();
+				function (response) {
+					var chapters = response && response.data ? response.data.chapters : [];
+					renderChaptersTable(chapters);
+					loadAvailablePosts();
+
+					if (parseInt($('#cz-post-id').val(), 10) === postId) {
+						$('#cz-post-id').val('');
+						renderSelectedPostLabel('');
+					}
 				}
 			);
 		});
 
-		$('#cz-post-search').on('input', function () {
+		$(document).on('input', '#cz-post-search-live', function () {
 			var term = $.trim($(this).val());
 			if (searchTimer) {
 				clearTimeout(searchTimer);
 			}
 
 			searchTimer = setTimeout(function () {
-				if (term.length < 2) {
-					renderSearchResults([]);
-					return;
-				}
-
-				ajaxRequest(
-					{
-						action: 'cz_search_posts',
-						nonce: CZVolumeAdmin.nonce,
-						volume_id: CZVolumeAdmin.volumeId,
-						term: term
-					},
-					function (response) {
-						renderSearchResults((response.data && response.data.items) || []);
-					}
-				);
-			}, 300);
+				browserState.term = term;
+				browserState.page = 1;
+				loadAvailablePosts();
+			}, 220);
 		});
 
-		$(document).on('click', '.cz-search-row.is-selectable', function () {
-			var postId = $(this).data('post-id');
+		$(document).on('click', '.cz-post-view-link', function (event) {
+			event.preventDefault();
+			var status = $(this).data('status') || 'all';
+			if (browserState.status === status) {
+				return;
+			}
+			browserState.status = status;
+			browserState.page = 1;
+			loadAvailablePosts();
+		});
+
+		$(document).on('change', '#cz-post-availability-filter', function () {
+			var availability = String($(this).val() || 'all');
+			browserState.availability = availability === 'available' ? 'available' : 'all';
+			browserState.page = 1;
+			loadAvailablePosts();
+		});
+
+		$(document).on('click', '.cz-sort-link', function (event) {
+			event.preventDefault();
+
+			var orderBy = String($(this).data('orderby') || '');
+			var order = String($(this).data('order') || 'asc').toLowerCase();
+			if (orderBy !== 'title' && orderBy !== 'author') {
+				return;
+			}
+
+			browserState.orderBy = orderBy;
+			browserState.order = order === 'desc' ? 'desc' : 'asc';
+			browserState.page = 1;
+			loadAvailablePosts();
+		});
+
+		$(document).on('click', '.cz-author-link', function (event) {
+			event.preventDefault();
+			event.stopPropagation();
+			var authorId = parseInt($(this).data('author-id'), 10) || 0;
+			var authorName = $(this).data('author-name') || '';
+			if (!authorId) {
+				return;
+			}
+
+			if (browserState.authorId === authorId) {
+				browserState.authorId = 0;
+				browserState.authorName = '';
+			} else {
+				browserState.authorId = authorId;
+				browserState.authorName = authorName;
+			}
+
+			browserState.page = 1;
+			loadAvailablePosts();
+		});
+
+		$(document).on('click', '#cz-clear-author-filter', function (event) {
+			event.preventDefault();
+			browserState.authorId = 0;
+			browserState.authorName = '';
+			browserState.page = 1;
+			loadAvailablePosts();
+		});
+
+		$(document).on('click', '.cz-post-page', function () {
+			if ($(this).is(':disabled')) {
+				return;
+			}
+			var page = parseInt($(this).data('page'), 10) || 1;
+			if (page < 1 || page === browserState.page) {
+				return;
+			}
+			browserState.page = page;
+			loadAvailablePosts();
+		});
+
+		$(document).on('click', '#cz-search-results-body tr.is-selectable', function () {
+			var postId = parseInt($(this).data('post-id'), 10) || 0;
+			var postTitle = $(this).data('post-title') || '';
+			var hasPrimaryVolume = parseInt($(this).data('has-primary-volume'), 10) === 1;
+			var nextChapterNumber = getNextChapterNumber();
 			if (!postId) {
 				return;
 			}
 
 			$('#cz-post-id').val(postId);
-			$('.cz-search-row.is-selected').removeClass('is-selected');
+			positionAutoMode = true;
+			$chapterNumber.val(nextChapterNumber).trigger('input');
+			$positionInput.val(nextChapterNumber);
+			$('#cz-is-primary').prop('checked', !hasPrimaryVolume);
+			$('#cz-search-results-body tr.is-selected').removeClass('is-selected');
 			$(this).addClass('is-selected');
+			renderSelectedPostLabel(postTitle);
 		});
 
 		$('#cz-add-chapter-form').on('submit', function (event) {
@@ -161,10 +487,45 @@
 				data[field.name] = field.value;
 			});
 
-			ajaxRequest(data, function () {
-				window.location.reload();
+			ajaxRequest(data, function (response) {
+				var chapters = response && response.data ? response.data.chapters : [];
+				var chapterNumberInput = $('#cz-chapter-number');
+				var currentChapter = parseInt(chapterNumberInput.val(), 10) || 0;
+
+				renderChaptersTable(chapters);
+				loadAvailablePosts();
+
+				$('#cz-post-id').val('');
+				renderSelectedPostLabel('');
+				chapterNumberInput.val(currentChapter > 0 ? currentChapter + 1 : '');
+				$('#cz-position').val(currentChapter > 0 ? currentChapter + 1 : '');
+				$('#cz-is-primary').prop('checked', true);
+				positionAutoMode = true;
 			});
 		});
+
+		if ($chapterNumber.length && $positionInput.length) {
+			$chapterNumber.on('input change', function () {
+				var chapterValue = $.trim($(this).val());
+				if (positionAutoMode || $.trim($positionInput.val()) === '') {
+					$positionInput.val(chapterValue);
+				}
+			});
+
+			$positionInput.on('input change', function () {
+				var chapterValue = $.trim($chapterNumber.val());
+				var positionValue = $.trim($(this).val());
+				if (positionValue === '') {
+					positionAutoMode = true;
+					return;
+				}
+
+				positionAutoMode = (chapterValue !== '' && positionValue === chapterValue);
+			});
+		}
+
+		renderSelectedPostLabel('');
+		loadAvailablePosts();
 
 		(function initVolumeTokenField() {
 			var $tokenbox = $('#cz-volume-tokenbox');
@@ -190,10 +551,6 @@
 					ids[String($(this).val())] = true;
 				});
 				return ids;
-			}
-
-			function escapeHtml(value) {
-				return $('<div>').text(value).html();
 			}
 
 			function addVolume(id, title) {

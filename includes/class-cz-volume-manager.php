@@ -270,6 +270,20 @@ class CZ_Volume_Manager {
 		return true;
 	}
 
+	public function post_has_primary_volume( $post_id ) {
+		$post_id = absint( $post_id );
+		if ( ! $post_id ) {
+			return false;
+		}
+
+		$sql = $this->wpdb->prepare(
+			"SELECT id FROM {$this->table_name} WHERE post_id = %d AND is_primary = 1 LIMIT 1",
+			$post_id
+		);
+
+		return (bool) $this->wpdb->get_var( $sql );
+	}
+
 	private function clear_cache_many( array $volume_ids ) {
 		$volume_ids = array_unique( array_map( 'absint', $volume_ids ) );
 		foreach ( $volume_ids as $volume_id ) {

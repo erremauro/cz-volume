@@ -83,6 +83,7 @@ class CZ_Volume_Admin {
 			'CZVolumeAdmin',
 			array(
 				'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
+				'editPostBaseUrl' => admin_url( 'post.php' ),
 				'nonce'    => wp_create_nonce( 'cz_volume_admin' ),
 				'volumeId' => $volume_id,
 				'postEditor' => $is_post_editor,
@@ -90,8 +91,29 @@ class CZ_Volume_Admin {
 				'i18n'     => array(
 					'confirmRemove' => __( 'Vuoi rimuovere questo capitolo?', 'cz-volume' ),
 					'error'         => __( 'Operazione non riuscita.', 'cz-volume' ),
-					'selectPost'    => __( 'Seleziona una riga dalla tabella risultati.', 'cz-volume' ),
+					'selectPost'    => __( 'Seleziona un post dalla tabella elenco.', 'cz-volume' ),
 					'searchEmpty'   => __( 'Nessun post trovato.', 'cz-volume' ),
+					'dragHandle'    => __( 'Trascina per riordinare', 'cz-volume' ),
+					'remove'        => __( 'Rimuovi', 'cz-volume' ),
+					'yes'           => __( 'Si', 'cz-volume' ),
+					'no'            => __( 'No', 'cz-volume' ),
+					'postNotFound'  => __( '(post non trovato)', 'cz-volume' ),
+					'noChapters'    => __( 'Nessun capitolo trovato per questo volume.', 'cz-volume' ),
+					'alreadyAdded'  => __( 'Gia nel volume', 'cz-volume' ),
+					'available'     => __( 'Disponibile', 'cz-volume' ),
+					'selectedPost'  => __( 'Post selezionato:', 'cz-volume' ),
+					'noneSelected'  => __( 'Nessun post selezionato.', 'cz-volume' ),
+					'all'           => __( 'Tutti', 'cz-volume' ),
+					'published'     => __( 'Pubblicati', 'cz-volume' ),
+					'draft'         => __( 'Bozze', 'cz-volume' ),
+					'title'         => __( 'Titolo', 'cz-volume' ),
+					'author'        => __( 'Autore', 'cz-volume' ),
+					'status'        => __( 'Stato', 'cz-volume' ),
+					'availability'  => __( 'Disponibilita', 'cz-volume' ),
+					'availableOnly' => __( 'Solo disponibili', 'cz-volume' ),
+					'loading'       => __( 'Caricamento post...', 'cz-volume' ),
+					'clearAuthor'   => __( 'Rimuovi filtro autore', 'cz-volume' ),
+					'pageLabel'     => __( 'Pagina', 'cz-volume' ),
 				),
 			)
 		);
@@ -216,6 +238,7 @@ class CZ_Volume_Admin {
 		$cover_id     = absint( get_post_meta( $post->ID, '_cz_volume_cover_image_id', true ) );
 		$epub_id      = absint( get_post_meta( $post->ID, '_cz_volume_epub_file_id', true ) );
 		$pdf_id       = absint( get_post_meta( $post->ID, '_cz_volume_pdf_file_id', true ) );
+		$subtitle     = (string) get_post_meta( $post->ID, '_cz_volume_subtitle', true );
 		$is_completed = (int) get_post_meta( $post->ID, '_cz_volume_completed', true );
 
 		$cover_url = $cover_id ? wp_get_attachment_image_url( $cover_id, 'medium' ) : '';
@@ -223,6 +246,11 @@ class CZ_Volume_Admin {
 		$pdf_url   = $pdf_id ? wp_get_attachment_url( $pdf_id ) : '';
 
 		echo '<div class="cz-volume-meta-box">';
+
+		echo '<div class="cz-volume-field">';
+		echo '<p><strong>' . esc_html__( 'Sottotitolo', 'cz-volume' ) . '</strong></p>';
+		echo '<input type="text" class="widefat" name="cz_volume_subtitle" value="' . esc_attr( $subtitle ) . '" placeholder="' . esc_attr__( 'Inserisci un sottotitolo', 'cz-volume' ) . '" />';
+		echo '</div>';
 
 		echo '<div class="cz-volume-field">';
 		echo '<p><strong>' . esc_html__( 'Copertina del Volume', 'cz-volume' ) . '</strong></p>';
@@ -346,40 +374,67 @@ class CZ_Volume_Admin {
 			echo '<input type="hidden" name="volume_id" value="' . esc_attr( (string) $volume_id ) . '" />';
 			echo '<input type="hidden" id="cz-post-id" name="post_id" value="" />';
 
-			echo '<table class="form-table" role="presentation"><tbody>';
-			echo '<tr><th><label for="cz-post-search">' . esc_html__( 'Ricerca Post', 'cz-volume' ) . '</label></th><td>';
-			echo '<input type="search" id="cz-post-search" class="regular-text" placeholder="' . esc_attr__( 'Cerca per titolo o ID...', 'cz-volume' ) . '" />';
-			echo '<p class="description">' . esc_html__( 'Scrivi almeno 2 caratteri e clicca la riga del post da selezionare.', 'cz-volume' ) . '</p>';
-			echo '<div class="cz-search-results-wrap">';
-			echo '<table class="widefat striped cz-search-results-table">';
+			echo '<div class="cz-add-chapter-controls">';
+			echo '<p id="cz-selected-post-label"><strong>' . esc_html__( 'Nessun post selezionato.', 'cz-volume' ) . '</strong></p>';
+			echo '<p class="description">' . esc_html__( 'Seleziona un post dalla tabella sotto, poi clicca "Aggiungi Capitolo".', 'cz-volume' ) . '</p>';
+
+			echo '<div class="cz-add-inline-fields">';
+			echo '<label for="cz-chapter-number"><strong>' . esc_html__( 'Numero Capitolo', 'cz-volume' ) . '</strong></label>';
+			echo '<input type="number" id="cz-chapter-number" name="chapter_number" min="1" step="1" required />';
+
+			echo '<label for="cz-position"><strong>' . esc_html__( 'Posizione', 'cz-volume' ) . '</strong></label>';
+			echo '<input type="number" id="cz-position" name="position" min="0" step="1" value="0" />';
+
+			echo '<label for="cz-is-primary" class="cz-inline-checkbox"><input type="checkbox" id="cz-is-primary" name="is_primary" value="1" checked="checked" /> ';
+			echo esc_html__( 'Volume Principale', 'cz-volume' ) . '</label>';
+			echo '</div>';
+
+			echo '<p class="description">' . esc_html__( 'Se attivo, disattiva automaticamente il Volume Principale negli altri volumi dello stesso capitolo.', 'cz-volume' ) . '</p>';
+			echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Aggiungi Capitolo', 'cz-volume' ) . '</button></p>';
+			echo '</div>';
+			echo '</form>';
+
+			echo '<h3>' . esc_html__( 'Elenco Post', 'cz-volume' ) . '</h3>';
+			echo '<div id="cz-post-browser" class="cz-post-browser">';
+			echo '<div class="cz-post-browser-toolbar">';
+			echo '<div id="cz-post-views" class="subsubsub"></div>';
+			echo '<div class="cz-post-filters-wrap">';
+			echo '<label for="cz-post-availability-filter" class="screen-reader-text">' . esc_html__( 'Filtro disponibilita', 'cz-volume' ) . '</label>';
+			echo '<select id="cz-post-availability-filter" class="cz-post-availability-filter">';
+			echo '<option value="all">' . esc_html__( 'Tutti', 'cz-volume' ) . '</option>';
+			echo '<option value="available">' . esc_html__( 'Solo disponibili', 'cz-volume' ) . '</option>';
+			echo '</select>';
+			echo '<div class="cz-post-search-wrap">';
+			echo '<input type="search" id="cz-post-search-live" class="regular-text" placeholder="' . esc_attr__( 'Cerca articoli...', 'cz-volume' ) . '" />';
+			echo '</div>';
+			echo '</div>';
+			echo '</div>';
+			echo '<div id="cz-post-author-filter" class="cz-post-author-filter" hidden></div>';
+			echo '<div class="cz-compact-list-wrap">';
+			echo '<table class="wp-list-table widefat fixed striped posts cz-compact-posts-table">';
 			echo '<thead><tr>';
-			echo '<th class="cz-col-id">' . esc_html__( 'ID', 'cz-volume' ) . '</th>';
-			echo '<th class="cz-col-title">' . esc_html__( 'Titolo', 'cz-volume' ) . '</th>';
-			echo '<th class="cz-col-status">' . esc_html__( 'Stato', 'cz-volume' ) . '</th>';
-			echo '<th class="cz-col-action">' . esc_html__( 'Azione', 'cz-volume' ) . '</th>';
+			echo '<th scope="col" id="cz-col-title" class="manage-column column-title sortable desc">';
+			echo '<a href="#" class="cz-sort-link" data-orderby="title" data-order="asc">';
+			echo '<span>' . esc_html__( 'Titolo', 'cz-volume' ) . '</span>';
+			echo '<span class="sorting-indicators"><span class="sorting-indicator asc" aria-hidden="true"></span><span class="sorting-indicator desc" aria-hidden="true"></span></span>';
+			echo '</a>';
+			echo '</th>';
+			echo '<th scope="col" id="cz-col-author" class="manage-column column-author sortable desc">';
+			echo '<a href="#" class="cz-sort-link" data-orderby="author" data-order="asc">';
+			echo '<span>' . esc_html__( 'Autore', 'cz-volume' ) . '</span>';
+			echo '<span class="sorting-indicators"><span class="sorting-indicator asc" aria-hidden="true"></span><span class="sorting-indicator desc" aria-hidden="true"></span></span>';
+			echo '</a>';
+			echo '</th>';
+			echo '<th scope="col" class="manage-column">' . esc_html__( 'Stato', 'cz-volume' ) . '</th>';
+			echo '<th scope="col" class="manage-column">' . esc_html__( 'Disponibilita', 'cz-volume' ) . '</th>';
 			echo '</tr></thead>';
 			echo '<tbody id="cz-search-results-body">';
-			echo '<tr><td colspan="4">' . esc_html__( 'Inizia a digitare per cercare un post.', 'cz-volume' ) . '</td></tr>';
+			echo '<tr><td colspan="4">' . esc_html__( 'Caricamento post...', 'cz-volume' ) . '</td></tr>';
 			echo '</tbody>';
 			echo '</table>';
 			echo '</div>';
-			echo '</td></tr>';
-
-			echo '<tr><th><label for="cz-chapter-number">' . esc_html__( 'Numero Capitolo', 'cz-volume' ) . '</label></th><td>';
-			echo '<input type="number" id="cz-chapter-number" name="chapter_number" min="1" step="1" required /></td></tr>';
-
-			echo '<tr><th><label for="cz-position">' . esc_html__( 'Posizione', 'cz-volume' ) . '</label></th><td>';
-			echo '<input type="number" id="cz-position" name="position" min="0" step="1" value="0" /></td></tr>';
-
-			echo '<tr><th><label for="cz-is-primary">' . esc_html__( 'Volume Principale', 'cz-volume' ) . '</label></th><td>';
-			echo '<label><input type="checkbox" id="cz-is-primary" name="is_primary" value="1" checked="checked" /> ';
-			echo esc_html__( 'Imposta questo volume come riferimento principale per il capitolo selezionato.', 'cz-volume' ) . '</label>';
-			echo '<p class="description">' . esc_html__( 'Se attivo, disattiva automaticamente il Volume Principale negli altri volumi dello stesso capitolo.', 'cz-volume' ) . '</p>';
-			echo '</td></tr>';
-			echo '</tbody></table>';
-
-			echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Aggiungi Capitolo', 'cz-volume' ) . '</button></p>';
-			echo '</form>';
+			echo '<div id="cz-posts-pagination" class="cz-posts-pagination"></div>';
+			echo '</div>';
 
 			echo '<hr />';
 			echo '<h2>' . esc_html__( 'Capitoli del Volume', 'cz-volume' ) . '</h2>';
@@ -396,7 +451,7 @@ class CZ_Volume_Admin {
 		$volume_id      = isset( $_POST['volume_id'] ) ? absint( wp_unslash( $_POST['volume_id'] ) ) : 0;
 		$post_id        = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
 		$chapter_number = isset( $_POST['chapter_number'] ) ? intval( wp_unslash( $_POST['chapter_number'] ) ) : 0;
-		$position       = isset( $_POST['position'] ) ? intval( wp_unslash( $_POST['position'] ) ) : 0;
+		$position_raw   = isset( $_POST['position'] ) ? trim( (string) wp_unslash( $_POST['position'] ) ) : '';
 		$is_primary     = isset( $_POST['is_primary'] ) ? 1 : 0;
 
 		if ( ! $this->is_valid_volume( $volume_id ) ) {
@@ -409,6 +464,11 @@ class CZ_Volume_Admin {
 
 		if ( $chapter_number <= 0 ) {
 			wp_send_json_error( array( 'message' => __( 'Numero capitolo non valido.', 'cz-volume' ) ), 400 );
+		}
+
+		$position = ( '' === $position_raw ) ? $chapter_number : intval( $position_raw );
+		if ( $position < 0 ) {
+			wp_send_json_error( array( 'message' => __( 'Posizione non valida.', 'cz-volume' ) ), 400 );
 		}
 
 		$ok = $this->manager->add_chapter( $volume_id, $post_id, $chapter_number, $position, $is_primary );
@@ -493,6 +553,7 @@ class CZ_Volume_Admin {
 		$cover_id = isset( $_POST['cz_volume_cover_image_id'] ) ? absint( wp_unslash( $_POST['cz_volume_cover_image_id'] ) ) : 0;
 		$epub_id  = isset( $_POST['cz_volume_epub_file_id'] ) ? absint( wp_unslash( $_POST['cz_volume_epub_file_id'] ) ) : 0;
 		$pdf_id   = isset( $_POST['cz_volume_pdf_file_id'] ) ? absint( wp_unslash( $_POST['cz_volume_pdf_file_id'] ) ) : 0;
+		$subtitle = isset( $_POST['cz_volume_subtitle'] ) ? sanitize_text_field( wp_unslash( $_POST['cz_volume_subtitle'] ) ) : '';
 
 		if ( $cover_id && ! wp_attachment_is_image( $cover_id ) ) {
 			$cover_id = 0;
@@ -516,6 +577,7 @@ class CZ_Volume_Admin {
 		update_post_meta( $post_id, '_cz_volume_cover_image_id', $cover_id );
 		update_post_meta( $post_id, '_cz_volume_epub_file_id', $epub_id );
 		update_post_meta( $post_id, '_cz_volume_pdf_file_id', $pdf_id );
+		update_post_meta( $post_id, '_cz_volume_subtitle', $subtitle );
 		update_post_meta( $post_id, '_cz_volume_completed', isset( $_POST['cz_volume_completed'] ) ? 1 : 0 );
 
 		if ( $cover_id ) {
@@ -584,17 +646,16 @@ class CZ_Volume_Admin {
 
 		$volume_id = isset( $_POST['volume_id'] ) ? absint( wp_unslash( $_POST['volume_id'] ) ) : 0;
 		$term      = isset( $_POST['term'] ) ? sanitize_text_field( wp_unslash( $_POST['term'] ) ) : '';
+		$status    = isset( $_POST['status'] ) ? sanitize_key( wp_unslash( $_POST['status'] ) ) : 'all';
+		$author_id = isset( $_POST['author_id'] ) ? absint( wp_unslash( $_POST['author_id'] ) ) : 0;
+		$page      = isset( $_POST['page'] ) ? max( 1, absint( wp_unslash( $_POST['page'] ) ) ) : 1;
+		$per_page  = isset( $_POST['per_page'] ) ? max( 10, min( 50, absint( wp_unslash( $_POST['per_page'] ) ) ) ) : 20;
+		$orderby   = isset( $_POST['orderby'] ) ? sanitize_key( wp_unslash( $_POST['orderby'] ) ) : 'date';
+		$order     = isset( $_POST['order'] ) ? strtolower( sanitize_key( wp_unslash( $_POST['order'] ) ) ) : 'desc';
+		$availability = isset( $_POST['availability'] ) ? sanitize_key( wp_unslash( $_POST['availability'] ) ) : 'all';
 
 		if ( ! $this->is_valid_volume( $volume_id ) ) {
 			wp_send_json_error( array( 'message' => __( 'Volume non valido.', 'cz-volume' ) ), 400 );
-		}
-
-		if ( strlen( $term ) < 2 ) {
-			wp_send_json_success(
-				array(
-					'items' => array(),
-				)
-			);
 		}
 
 		$already_added_ids = array();
@@ -606,17 +667,45 @@ class CZ_Volume_Admin {
 			}
 		}
 
+		$post_status = array( 'publish', 'draft', 'private', 'pending', 'future' );
+		if ( 'publish' === $status ) {
+			$post_status = array( 'publish' );
+		} elseif ( 'draft' === $status ) {
+			$post_status = array( 'draft' );
+		}
+
+		if ( 'available' !== $availability ) {
+			$availability = 'all';
+		}
+
+		$allowed_orderby = array( 'date', 'title', 'author' );
+		if ( ! in_array( $orderby, $allowed_orderby, true ) ) {
+			$orderby = 'date';
+		}
+
+		if ( ! in_array( $order, array( 'asc', 'desc' ), true ) ) {
+			$order = 'desc';
+		}
+
 		$args = array(
 			'post_type'      => 'post',
-			'post_status'    => array( 'publish', 'draft', 'private' ),
-			'posts_per_page' => 20,
-			'orderby'        => 'date',
-			'order'          => 'DESC',
-			's'              => $term,
+			'post_status'    => $post_status,
+			'posts_per_page' => $per_page,
+			'paged'          => $page,
+			'orderby'        => $orderby,
+			'order'          => strtoupper( $order ),
 		);
 
-		if ( ctype_digit( $term ) ) {
-			$args['p'] = absint( $term );
+		if ( '' !== $term ) {
+			$args['s'] = $term;
+		}
+
+		if ( $author_id ) {
+			$args['author'] = $author_id;
+		}
+
+		if ( 'available' === $availability && ! empty( $already_added_ids ) ) {
+			$args['post__not_in'] = array_keys( $already_added_ids );
 		}
 
 		$query = new WP_Query( $args );
@@ -628,16 +717,53 @@ class CZ_Volume_Admin {
 					'id'            => (int) $post->ID,
 					'title'         => $post->post_title ? $post->post_title : __( '(senza titolo)', 'cz-volume' ),
 					'status'        => (string) $post->post_status,
+					'status_label'  => $this->get_post_status_label( (string) $post->post_status ),
+					'author_id'     => (int) $post->post_author,
+					'author_name'   => get_the_author_meta( 'display_name', (int) $post->post_author ),
+					'has_primary_volume' => $this->manager->post_has_primary_volume( (int) $post->ID ),
 					'already_added' => isset( $already_added_ids[ (int) $post->ID ] ),
 				);
 			}
 		}
 
+		$counts = wp_count_posts( 'post' );
+		$count_all = 0;
+		foreach ( array( 'publish', 'draft', 'private', 'pending', 'future' ) as $status_key ) {
+			$count_all += isset( $counts->$status_key ) ? (int) $counts->$status_key : 0;
+		}
+
 		wp_send_json_success(
 			array(
 				'items' => $items,
+				'pagination' => array(
+					'current_page' => $page,
+					'total_pages'  => max( 1, (int) $query->max_num_pages ),
+					'total_items'  => (int) $query->found_posts,
+				),
+				'views' => array(
+					'all'     => $count_all,
+					'publish' => isset( $counts->publish ) ? (int) $counts->publish : 0,
+					'draft'   => isset( $counts->draft ) ? (int) $counts->draft : 0,
+				),
+				'filters' => array(
+					'status'    => $status,
+					'author_id' => $author_id,
+					'orderby'   => $orderby,
+					'order'     => $order,
+					'availability' => $availability,
+				),
 			)
 		);
+	}
+
+	private function get_post_status_label( $status ) {
+		$status = sanitize_key( (string) $status );
+		if ( '' === $status ) {
+			return '';
+		}
+
+		$status_object = get_post_status_object( $status );
+		return ( $status_object && isset( $status_object->label ) ) ? $status_object->label : $status;
 	}
 
 	private function assert_ajax_permissions() {

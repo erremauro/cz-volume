@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] 2026-02-13
+### Added
+- Aggiunto Campo `Sottotitolo` nella metabox del Volume `Dettagli Volume`
+### Changed
+- Modifiche apportate alla tabella in `Gestione Capitoli > Elenco Post`:
+  - Aggiunta la possibilità di Filtrare per `Disponibilità`
+  - Aggiunto ordinamento per `Titolo` e `Autore`
+  - Resa fissa la barra delle colonne
+  - `Numero Capitolo` impostato automaticamente al Capitolo Successivo
+  - `Volume Principale` deflaggato per default se il capitolo ha già un Volume Principale
+  
+
 ## [1.1.1] 2026-02-13
 ### Changed
 - Icona menu dashboard del CPT `volume` impostata a `dashicons-book`.
@@ -44,7 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cleanup controllato in deactivation/uninstall.
 
 
-[Unreleased]: https://github.com/erremauro/cz-volume/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/erremauro/cz-volume/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.2.0
 [1.1.1]: https://github.com/erremauro/cz-volume/releases/tag/v1.1.1
 [1.1.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.1.0
 [1.0.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.0.0
