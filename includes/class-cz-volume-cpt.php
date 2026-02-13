@@ -25,6 +25,7 @@ class CZ_Volume_CPT {
 			array(
 				'labels'       => $labels,
 				'public'       => true,
+				'menu_icon'    => 'dashicons-book',
 				'supports'     => array( 'title', 'editor', 'thumbnail', 'author' ),
 				'has_archive'  => true,
 				'rewrite'      => array( 'slug' => 'volumi' ),
