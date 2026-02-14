@@ -903,6 +903,54 @@
 			updateMostUsedState();
 		})();
 
+		(function initVolumeSidebarManageAction() {
+			if (!CZVolumeAdmin.volumeEditor) {
+				return;
+			}
+
+			if (!window.wp || !window.wp.data || !window.wp.domReady || !window.wp.plugins || !window.wp.editPost || !window.wp.components || !window.wp.element) {
+				return;
+			}
+
+			wp.domReady(function () {
+				var selectEditor = wp.data.select('core/editor');
+				if (!selectEditor || selectEditor.getCurrentPostType() !== 'volume') {
+					return;
+				}
+
+				var postId = parseInt(selectEditor.getCurrentPostId(), 10) || 0;
+				if (!postId || !CZVolumeAdmin.chaptersPageBaseUrl) {
+					return;
+				}
+
+				var actionUrl = CZVolumeAdmin.chaptersPageBaseUrl + '&volume_id=' + postId;
+				var el = wp.element.createElement;
+				var PluginDocumentSettingPanel = wp.editPost.PluginDocumentSettingPanel;
+				var Button = wp.components.Button;
+
+				wp.plugins.registerPlugin('cz-volume-sidebar-manage-action', {
+					render: function () {
+						return el(
+							PluginDocumentSettingPanel,
+							{
+								name: 'cz-volume-sidebar-manage',
+								title: CZVolumeAdmin.i18n.manageChapters || 'Gestione Capitoli',
+								className: 'cz-volume-sidebar-manage-panel'
+							},
+							el(
+								Button,
+								{
+									variant: 'secondary',
+									href: actionUrl
+								},
+								CZVolumeAdmin.i18n.manageVolume || 'Gestisci Volume'
+							)
+						);
+					}
+				});
+			});
+		})();
+
 		(function initVolumeMediaFields() {
 			if (!CZVolumeAdmin.volumeEditor) {
 				return;

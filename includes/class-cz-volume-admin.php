@@ -70,10 +70,18 @@ class CZ_Volume_Admin {
 		wp_enqueue_script( 'jquery-ui-sortable' );
 		wp_enqueue_media();
 
+		$script_deps = array( 'jquery', 'jquery-ui-sortable' );
+		if ( $is_post_editor || $is_volume_editor ) {
+			$script_deps = array_merge(
+				$script_deps,
+				array( 'wp-data', 'wp-dom-ready', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-plugins' )
+			);
+		}
+
 		wp_enqueue_script(
 			'cz-volume-admin',
 			$admin_js_url,
-			array( 'jquery', 'jquery-ui-sortable' ),
+			$script_deps,
 			$admin_js_ver,
 			true
 		);
@@ -84,13 +92,20 @@ class CZ_Volume_Admin {
 			'cz-volume-admin',
 			'CZVolumeAdmin',
 			array(
-				'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
-				'editPostBaseUrl' => admin_url( 'post.php' ),
-				'nonce'    => wp_create_nonce( 'cz_volume_admin' ),
-				'volumeId' => $volume_id,
-				'postEditor' => $is_post_editor,
-				'volumeEditor' => $is_volume_editor,
-				'i18n'     => array(
+				'ajaxUrl'             => admin_url( 'admin-ajax.php' ),
+				'editPostBaseUrl'     => admin_url( 'post.php' ),
+				'chaptersPageBaseUrl' => add_query_arg(
+					array(
+						'post_type' => 'volume',
+						'page'      => 'cz-volume-chapters',
+					),
+					admin_url( 'edit.php' )
+				),
+				'nonce'               => wp_create_nonce( 'cz_volume_admin' ),
+				'volumeId'            => $volume_id,
+				'postEditor'          => $is_post_editor,
+				'volumeEditor'        => $is_volume_editor,
+				'i18n'                => array(
 					'confirmRemove' => __( 'Vuoi rimuovere questo capitolo?', 'cz-volume' ),
 					'error'         => __( 'Operazione non riuscita.', 'cz-volume' ),
 					'selectPost'    => __( 'Seleziona un post dalla tabella elenco.', 'cz-volume' ),
@@ -121,6 +136,8 @@ class CZ_Volume_Admin {
 					'entryTypeChapter' => __( 'Capitolo', 'cz-volume' ),
 					'entryTypeFront'   => __( 'Sezione iniziale', 'cz-volume' ),
 					'entryTypeBack'    => __( 'Sezione finale', 'cz-volume' ),
+					'manageChapters'   => __( 'Gestione Capitoli', 'cz-volume' ),
+					'manageVolume'     => __( 'Gestisci Volume', 'cz-volume' ),
 				),
 			)
 		);
@@ -251,8 +268,20 @@ class CZ_Volume_Admin {
 		$cover_url = $cover_id ? wp_get_attachment_image_url( $cover_id, 'medium' ) : '';
 		$epub_url  = $epub_id ? wp_get_attachment_url( $epub_id ) : '';
 		$pdf_url   = $pdf_id ? wp_get_attachment_url( $pdf_id ) : '';
+		$manage_url = add_query_arg(
+			array(
+				'post_type' => 'volume',
+				'page'      => 'cz-volume-chapters',
+				'volume_id' => (int) $post->ID,
+			),
+			admin_url( 'edit.php' )
+		);
 
 		echo '<div class="cz-volume-meta-box">';
+
+		echo '<div class="cz-volume-field">';
+		echo '<a class="button button-secondary cz-manage-volume-button" href="' . esc_url( $manage_url ) . '">' . esc_html__( 'Gestisci Volume', 'cz-volume' ) . '</a>';
+		echo '</div>';
 
 		echo '<div class="cz-volume-field">';
 		echo '<p><strong>' . esc_html__( 'Sottotitolo', 'cz-volume' ) . '</strong></p>';

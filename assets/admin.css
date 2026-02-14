@@ -440,6 +440,14 @@
 	margin-bottom: 16px;
 }
 
+.cz-volume-meta-box .cz-manage-volume-button {
+	display: block;
+	width: 100%;
+	padding-top: 6px;
+	padding-bottom: 6px;
+	text-align: center;
+}
+
 .cz-media-preview,
 .cz-file-preview {
 	border: 1px solid #dcdcde;
@@ -459,6 +467,11 @@
 .cz-media-placeholder {
 	color: #646970;
 	font-size: 12px;
+}
+
+.cz-volume-meta-box .cz-media-upload,
+.cz-volume-meta-box .cz-media-remove {
+	margin-top: 8px;
 }
 
 .cz-switch {
