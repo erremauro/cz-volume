@@ -125,6 +125,12 @@ class CZ_Volume_Manager {
 		if ( ! $volume_id || ! $post_id ) {
 			return false;
 		}
+		if ( $position <= 0 ) {
+			$position = 1;
+		}
+		if ( '' === $section_label ) {
+			$section_label = (string) $position;
+		}
 		if ( 'chapter' !== $entry_type ) {
 			$chapter_number = 0;
 		}
@@ -190,7 +196,7 @@ class CZ_Volume_Manager {
 			return false;
 		}
 
-		$position = 0;
+		$position = 1;
 		foreach ( $ordered_post_ids as $post_id ) {
 			$post_id = absint( $post_id );
 			if ( ! $post_id ) {
@@ -264,6 +270,47 @@ class CZ_Volume_Manager {
 			$this->wpdb->prepare(
 				"UPDATE {$this->table_name} SET chapter_number = %d WHERE id = %d",
 				$chapter_number,
+				(int) $row['id']
+			)
+		);
+
+		$this->clear_cache( $volume_id );
+		return false !== $updated;
+	}
+
+	public function update_chapter_index( $volume_id, $post_id, $chapter_index ) {
+		$volume_id     = absint( $volume_id );
+		$post_id       = absint( $post_id );
+		$chapter_index = sanitize_text_field( (string) $chapter_index );
+
+		if ( ! $volume_id || ! $post_id || '' === $chapter_index ) {
+			return false;
+		}
+
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				"SELECT id, entry_type, position FROM {$this->table_name} WHERE volume_id = %d AND post_id = %d LIMIT 1",
+				$volume_id,
+				$post_id
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $row ) || empty( $row['id'] ) ) {
+			return false;
+		}
+
+		$entry_type = isset( $row['entry_type'] ) ? $this->sanitize_entry_type( $row['entry_type'] ) : 'chapter';
+		$position   = isset( $row['position'] ) ? max( 1, intval( $row['position'] ) ) : 1;
+		$chapter_number = ( is_numeric( $chapter_index ) && intval( $chapter_index ) > 0 ) ? intval( $chapter_index ) : $position;
+		if ( 'chapter' !== $entry_type ) {
+			$chapter_number = 0;
+		}
+
+		$updated = $this->wpdb->query(
+			$this->wpdb->prepare(
+				"UPDATE {$this->table_name} SET chapter_number = %d, section_label = %s WHERE id = %d",
+				$chapter_number,
+				$chapter_index,
 				(int) $row['id']
 			)
 		);
@@ -355,6 +402,7 @@ class CZ_Volume_Manager {
 	private function normalize_chapter_row( array $row ) {
 		$row['entry_type']    = isset( $row['entry_type'] ) ? $this->sanitize_entry_type( $row['entry_type'] ) : 'chapter';
 		$row['section_label'] = isset( $row['section_label'] ) ? (string) $row['section_label'] : '';
+		$row['position']      = max( 1, isset( $row['position'] ) ? intval( $row['position'] ) : 1 );
 
 		return $row;
 	}

@@ -35,7 +35,7 @@ class CZ_Volume_List_Table extends WP_List_Table {
 	public function get_columns() {
 		return array(
 			'position'       => __( 'Posizione', 'cz-volume' ),
-			'chapter_number' => __( 'Capitolo/Sezione', 'cz-volume' ),
+			'chapter_number' => __( 'Indice Capitolo', 'cz-volume' ),
 			'post_title'     => __( 'Titolo Post', 'cz-volume' ),
 			'is_primary'     => __( 'Volume Principale', 'cz-volume' ),
 			'actions'        => __( 'Azioni', 'cz-volume' ),
@@ -103,26 +103,24 @@ class CZ_Volume_List_Table extends WP_List_Table {
 		$section_label = isset( $item['section_label'] ) ? (string) $item['section_label'] : '';
 		$chapter_num   = isset( $item['chapter_number'] ) ? intval( $item['chapter_number'] ) : 0;
 		$post_id       = isset( $item['post_id'] ) ? absint( $item['post_id'] ) : 0;
-
-		if ( 'chapter' === $entry_type ) {
-			return '<div class="cz-chapter-number-inline">' .
-				'<button type="button" class="button-link cz-chapter-number-link" data-post-id="' . esc_attr( (string) $post_id ) . '">' . esc_html( (string) $chapter_num ) . '</button>' .
-				'<span class="cz-chapter-number-editor" hidden>' .
-					'<input type="number" class="small-text cz-chapter-number-input" min="1" step="1" value="' . esc_attr( (string) $chapter_num ) . '" data-post-id="' . esc_attr( (string) $post_id ) . '" /> ' .
-					'<button type="button" class="button button-small cz-save-chapter-number" data-post-id="' . esc_attr( (string) $post_id ) . '">' . esc_html__( 'Aggiorna', 'cz-volume' ) . '</button>' .
-				'</span>' .
-			'</div>';
+		$chapter_index = '' !== $section_label ? $section_label : ( $chapter_num > 0 ? (string) $chapter_num : '' );
+		if ( '' === $chapter_index && 'front_matter' === $entry_type ) {
+			$chapter_index = __( 'Sezione iniziale', 'cz-volume' );
+		} elseif ( '' === $chapter_index && 'back_matter' === $entry_type ) {
+			$chapter_index = __( 'Sezione finale', 'cz-volume' );
 		}
 
-		if ( '' !== $section_label ) {
-			return esc_html( $section_label );
+		if ( ! $post_id ) {
+			return esc_html( $chapter_index );
 		}
 
-		if ( 'front_matter' === $entry_type ) {
-			return esc_html__( 'Sezione iniziale', 'cz-volume' );
-		}
-
-		return esc_html__( 'Sezione finale', 'cz-volume' );
+		return '<div class="cz-chapter-number-inline">' .
+			'<button type="button" class="button-link cz-chapter-number-link" data-post-id="' . esc_attr( (string) $post_id ) . '">' . esc_html( $chapter_index ) . '</button>' .
+			'<span class="cz-chapter-number-editor" hidden>' .
+				'<input type="text" class="small-text cz-chapter-number-input" value="' . esc_attr( $chapter_index ) . '" data-post-id="' . esc_attr( (string) $post_id ) . '" /> ' .
+				'<button type="button" class="button button-small cz-save-chapter-number" data-post-id="' . esc_attr( (string) $post_id ) . '">' . esc_html__( 'Aggiorna', 'cz-volume' ) . '</button>' .
+			'</span>' .
+		'</div>';
 	}
 
 	public function column_post_title( $item ) {

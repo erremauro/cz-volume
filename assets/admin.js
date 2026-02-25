@@ -68,30 +68,25 @@
 			var chapterNumber = parseInt(chapter.chapter_number, 10) || 0;
 			var entryType = String(chapter.entry_type || 'chapter');
 			var sectionLabel = String(chapter.section_label || '');
+			var chapterIndex = sectionLabel || (chapterNumber > 0 ? String(chapterNumber) : '');
+			if (!chapterIndex && entryType === 'front_matter') {
+				chapterIndex = String(CZVolumeAdmin.i18n.entryTypeFront || '');
+			} else if (!chapterIndex && entryType === 'back_matter') {
+				chapterIndex = String(CZVolumeAdmin.i18n.entryTypeBack || '');
+			}
 			var position = parseInt(chapter.position, 10) || 0;
 			var title = escapeHtml(chapter.post_title || CZVolumeAdmin.i18n.postNotFound);
 			var isPrimary = parseInt(chapter.is_primary, 10) === 1;
 			var editUrl = CZVolumeAdmin.editPostBaseUrl + '?post=' + postId + '&action=edit';
 			var titleHtml = postId ? '<a href="' + escapeHtml(editUrl) + '">' + title + '</a>' : title;
-			var chapterCellHtml = '';
-			if (entryType !== 'chapter') {
-				if (sectionLabel) {
-					chapterCellHtml = escapeHtml(sectionLabel);
-				} else if (entryType === 'front_matter') {
-					chapterCellHtml = escapeHtml(CZVolumeAdmin.i18n.entryTypeFront);
-				} else {
-					chapterCellHtml = escapeHtml(CZVolumeAdmin.i18n.entryTypeBack);
-				}
-			} else {
-				chapterCellHtml = '' +
-					'<div class="cz-chapter-number-inline">' +
-						'<button type="button" class="button-link cz-chapter-number-link" data-post-id="' + postId + '">' + chapterNumber + '</button>' +
-						'<span class="cz-chapter-number-editor" hidden>' +
-							'<input type="number" class="small-text cz-chapter-number-input" min="1" step="1" value="' + chapterNumber + '" data-post-id="' + postId + '" /> ' +
-							'<button type="button" class="button button-small cz-save-chapter-number" data-post-id="' + postId + '">' + escapeHtml(CZVolumeAdmin.i18n.update) + '</button>' +
-						'</span>' +
-					'</div>';
-			}
+			var chapterCellHtml = '' +
+				'<div class="cz-chapter-number-inline">' +
+					'<button type="button" class="button-link cz-chapter-number-link" data-post-id="' + postId + '">' + escapeHtml(chapterIndex) + '</button>' +
+					'<span class="cz-chapter-number-editor" hidden>' +
+						'<input type="text" class="small-text cz-chapter-number-input" value="' + escapeHtml(chapterIndex) + '" data-post-id="' + postId + '" /> ' +
+						'<button type="button" class="button button-small cz-save-chapter-number" data-post-id="' + postId + '">' + escapeHtml(CZVolumeAdmin.i18n.update) + '</button>' +
+					'</span>' +
+				'</div>';
 			var primaryHtml = isPrimary
 				? '<span class="cz-tag-available">' + escapeHtml(CZVolumeAdmin.i18n.yes) + '</span>'
 				: '<span class="cz-tag-added">' + escapeHtml(CZVolumeAdmin.i18n.no) + '</span>';
@@ -105,7 +100,7 @@
 					'<td class="position column-position" data-colname="Posizione">' +
 						'<span class="cz-drag-handle" title="' + escapeHtml(CZVolumeAdmin.i18n.dragHandle) + '">&#9776;</span> ' + position +
 					'</td>' +
-					'<td class="chapter_number column-chapter_number" data-colname="Capitolo/Sezione">' + chapterCellHtml + '</td>' +
+					'<td class="chapter_number column-chapter_number" data-colname="Indice Capitolo">' + chapterCellHtml + '</td>' +
 					'<td class="post_title column-post_title" data-colname="Titolo Post">' + titleHtml + '</td>' +
 					'<td class="is_primary column-is_primary" data-colname="Volume Principale">' + primaryHtml + '</td>' +
 					'<td class="actions column-actions" data-colname="Azioni">' + actionsHtml + '</td>' +
@@ -151,11 +146,10 @@
 		var searchTimer = null;
 		var $chapterNumber = $('#cz-chapter-number');
 		var $entryType = $('#cz-entry-type');
-		var $sectionLabel = $('#cz-section-label');
 		var $chapterField = $('#cz-field-chapter-number');
-		var $sectionField = $('#cz-field-section-label');
 		var $positionInput = $('#cz-position');
 		var positionAutoMode = true;
+		var chapterIndexAutoMode = true;
 		var $postSearchBody = $('#cz-search-results-body');
 		var $postViews = $('#cz-post-views');
 		var $postPagination = $('#cz-posts-pagination');
@@ -281,26 +275,8 @@
 			});
 		}
 
-		function getNextChapterNumber() {
-			var maxChapter = 0;
-
-			$('.wp-list-table.chapters tbody tr').each(function () {
-				var type = String($(this).data('entry-type') || 'chapter');
-				if (type !== 'chapter') {
-					return;
-				}
-				var chapterText = $.trim($(this).find('td.column-chapter_number').first().text());
-				var chapterNumber = parseInt(chapterText, 10) || 0;
-				if (chapterNumber > maxChapter) {
-					maxChapter = chapterNumber;
-				}
-			});
-
-			return Math.max(1, maxChapter + 1);
-		}
-
 		function getNextPositionValue() {
-			var maxPosition = -1;
+			var maxPosition = 0;
 
 			$('.wp-list-table.chapters tbody tr').each(function () {
 				var positionText = $.trim($(this).find('td.column-position').first().text());
@@ -314,28 +290,12 @@
 		}
 
 		function syncEntryTypeUI() {
-			var selectedType = String($entryType.val() || 'chapter');
-			var isChapter = selectedType === 'chapter';
-			$chapterNumber.prop('required', isChapter).prop('disabled', !isChapter);
-			$sectionLabel.prop('required', !isChapter).prop('disabled', isChapter);
+			$chapterNumber.prop('required', true).prop('disabled', false);
 			if ($chapterField.length) {
-				$chapterField.attr('hidden', !isChapter);
+				$chapterField.attr('hidden', false);
 			}
-			if ($sectionField.length) {
-				$sectionField.attr('hidden', isChapter);
-			}
-			if (!isChapter) {
-				$chapterNumber.val('');
-				if (positionAutoMode || $.trim($positionInput.val()) === '') {
-					if (selectedType === 'front_matter') {
-						$positionInput.val('0');
-					} else {
-						$positionInput.val(getNextPositionValue());
-					}
-				}
-			} else if ($.trim($chapterNumber.val()) === '') {
-				var nextChapterNumber = getNextChapterNumber();
-				$chapterNumber.val(nextChapterNumber).trigger('input');
+			if ($.trim($chapterNumber.val()) === '') {
+				$chapterNumber.val(getNextPositionValue());
 			}
 		}
 
@@ -559,8 +519,8 @@
 		$(document).on('click', '.cz-save-chapter-number', function () {
 			var postId = parseInt($(this).data('post-id'), 10) || 0;
 			var $row = $(this).closest('tr');
-			var chapterNumber = parseInt($row.find('.cz-chapter-number-input').val(), 10) || 0;
-			if (!postId || !CZVolumeAdmin.volumeId || chapterNumber <= 0) {
+			var chapterIndex = $.trim(String($row.find('.cz-chapter-number-input').val() || ''));
+			if (!postId || !CZVolumeAdmin.volumeId || !chapterIndex) {
 				alert(CZVolumeAdmin.i18n.invalidChapterNumber || CZVolumeAdmin.i18n.error);
 				return;
 			}
@@ -571,7 +531,7 @@
 					nonce: CZVolumeAdmin.nonce,
 					volume_id: CZVolumeAdmin.volumeId,
 					post_id: postId,
-					chapter_number: chapterNumber
+					chapter_index: chapterIndex
 				},
 				function (response) {
 					var chapters = response && response.data ? response.data.chapters : [];
@@ -687,17 +647,16 @@
 			var postId = parseInt($(this).data('post-id'), 10) || 0;
 			var postTitle = $(this).data('post-title') || '';
 			var hasPrimaryVolume = parseInt($(this).data('has-primary-volume'), 10) === 1;
-			var nextChapterNumber = getNextChapterNumber();
+			var nextPosition = getNextPositionValue();
 			if (!postId) {
 				return;
 			}
 
 			$('#cz-post-id').val(postId);
 			positionAutoMode = true;
-			if (String($entryType.val() || 'chapter') === 'chapter') {
-				$chapterNumber.val(nextChapterNumber).trigger('input');
-				$positionInput.val(nextChapterNumber);
-			}
+			chapterIndexAutoMode = true;
+			$positionInput.val(nextPosition);
+			$chapterNumber.val(String(nextPosition));
 			$('#cz-is-primary').prop('checked', !hasPrimaryVolume);
 			$('#cz-search-results-body tr.is-selected').removeClass('is-selected');
 			$(this).addClass('is-selected');
@@ -721,7 +680,8 @@
 			ajaxRequest(data, function (response) {
 				var chapters = response && response.data ? response.data.chapters : [];
 				var chapterNumberInput = $('#cz-chapter-number');
-				var currentChapter = parseInt(chapterNumberInput.val(), 10) || 0;
+				var currentPosition = parseInt($('#cz-position').val(), 10) || 1;
+				var nextPosition = Math.max(1, currentPosition + 1);
 
 				renderChaptersTable(chapters, chapterSortState);
 				renderChapterSortHeaders();
@@ -730,21 +690,18 @@
 				$('#cz-post-id').val('');
 				renderSelectedPostLabel('');
 				$entryType.val('chapter');
-				$sectionLabel.val('');
-				chapterNumberInput.val(currentChapter > 0 ? currentChapter + 1 : '');
-				$('#cz-position').val(currentChapter > 0 ? currentChapter + 1 : '');
+				chapterNumberInput.val(String(nextPosition));
+				$('#cz-position').val(String(nextPosition));
 				$('#cz-is-primary').prop('checked', true);
 				positionAutoMode = true;
+				chapterIndexAutoMode = true;
 				syncEntryTypeUI();
 			});
 		});
 
 		if ($chapterNumber.length && $positionInput.length) {
 			$chapterNumber.on('input change', function () {
-				var chapterValue = $.trim($(this).val());
-				if (positionAutoMode || $.trim($positionInput.val()) === '') {
-					$positionInput.val(chapterValue);
-				}
+				chapterIndexAutoMode = false;
 			});
 
 			$positionInput.on('input change', function () {
@@ -754,8 +711,15 @@
 					positionAutoMode = true;
 					return;
 				}
+				if (parseInt(positionValue, 10) <= 0) {
+					$(this).val('1');
+					positionValue = '1';
+				}
 
 				positionAutoMode = (chapterValue !== '' && positionValue === chapterValue);
+				if (chapterIndexAutoMode || chapterValue === '') {
+					$chapterNumber.val(positionValue);
+				}
 			});
 		}
 
@@ -769,6 +733,62 @@
 		renderSelectedPostLabel('');
 		renderChapterSortHeaders();
 		loadAvailablePosts();
+
+		(function initVolumeActionButtons() {
+			var $volumeSelect = $('#cz-volume-id');
+			var $viewButton = $('#cz-view-volume-button');
+			var $editButton = $('#cz-edit-volume-button');
+			if (!$volumeSelect.length || (!$viewButton.length && !$editButton.length)) {
+				return;
+			}
+
+			function setButtonDisabled($button) {
+				if (!$button.length) {
+					return;
+				}
+				$button.attr('href', '#');
+				$button.attr('aria-disabled', 'true');
+				$button.attr('tabindex', '-1');
+				$button.addClass('button-disabled');
+			}
+
+			function setButtonEnabled($button, href) {
+				if (!$button.length) {
+					return;
+				}
+				$button.attr('href', href);
+				$button.removeAttr('aria-disabled');
+				$button.removeAttr('tabindex');
+				$button.removeClass('button-disabled');
+			}
+
+			function syncButtons() {
+				var volumeId = parseInt($volumeSelect.val(), 10) || 0;
+				var editBaseUrl = String($editButton.attr('data-edit-base-url') || '');
+				var selectedViewUrl = String($volumeSelect.find('option:selected').attr('data-view-url') || '');
+
+				if (!volumeId) {
+					setButtonDisabled($viewButton);
+					setButtonDisabled($editButton);
+					return;
+				}
+
+				if (selectedViewUrl) {
+					setButtonEnabled($viewButton, selectedViewUrl);
+				} else {
+					setButtonDisabled($viewButton);
+				}
+
+				if (editBaseUrl) {
+					setButtonEnabled($editButton, editBaseUrl + '?post=' + volumeId + '&action=edit');
+				} else {
+					setButtonDisabled($editButton);
+				}
+			}
+
+			$volumeSelect.on('change', syncButtons);
+			syncButtons();
+		})();
 
 		(function initVolumeTokenField() {
 			var $tokenbox = $('#cz-volume-tokenbox');
