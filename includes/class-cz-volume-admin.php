@@ -24,7 +24,9 @@ class CZ_Volume_Admin {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'add_meta_boxes', array( $this, 'register_post_metabox' ) );
 		add_action( 'add_meta_boxes', array( $this, 'register_volume_metabox' ) );
+		add_action( 'add_meta_boxes', array( $this, 'register_mostra_come_metabox' ) );
 		add_action( 'save_post_post', array( $this, 'save_post_volumes' ) );
+		add_action( 'save_post_post', array( $this, 'save_post_mostra_come' ) );
 		add_action( 'save_post_volume', array( $this, 'save_volume_details' ) );
 		add_filter( 'post_row_actions', array( $this, 'add_volume_manage_row_action' ), 10, 2 );
 
@@ -239,6 +241,48 @@ class CZ_Volume_Admin {
 
 		echo '</ul>';
 		echo '</div>';
+	}
+
+	public function register_mostra_come_metabox() {
+		add_meta_box(
+			'cz-post-mostra-come-metabox',
+			__( 'Mostra Come', 'cz-volume' ),
+			array( $this, 'render_mostra_come_metabox' ),
+			'post',
+			'side',
+			'default'
+		);
+	}
+
+	public function render_mostra_come_metabox( $post ) {
+		if ( ! current_user_can( 'edit_post', $post->ID ) ) {
+			return;
+		}
+
+		wp_nonce_field( 'cz_post_mostra_come_save', 'cz_post_mostra_come_nonce' );
+
+		$value = (string) get_post_meta( $post->ID, '_cz_post_display_title', true );
+
+		echo '<p class="description">' . esc_html__( 'Titolo alternativo mostrato nell\'elenco capitoli del volume al posto del titolo del post.', 'cz-volume' ) . '</p>';
+		echo '<p><input type="text" class="widefat" name="cz_post_display_title" value="' . esc_attr( $value ) . '" placeholder="' . esc_attr( (string) get_the_title( $post->ID ) ) . '" /></p>';
+	}
+
+	public function save_post_mostra_come( $post_id ) {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+		if ( wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return;
+		}
+		if ( ! isset( $_POST['cz_post_mostra_come_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['cz_post_mostra_come_nonce'] ) ), 'cz_post_mostra_come_save' ) ) {
+			return;
+		}
+
+		$value = isset( $_POST['cz_post_display_title'] ) ? sanitize_text_field( wp_unslash( $_POST['cz_post_display_title'] ) ) : '';
+		update_post_meta( $post_id, '_cz_post_display_title', $value );
 	}
 
 	public function register_volume_metabox() {
