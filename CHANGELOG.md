@@ -82,7 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cleanup controllato in deactivation/uninstall.
 
 
-[Unreleased]: https://github.com/erremauro/cz-volume/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/erremauro/cz-volume/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/erremauro/cz-volume/releases/tag/v1.4.1
 [1.4.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.4.0
 [1.3.1]: https://github.com/erremauro/cz-volume/releases/tag/v1.3.1
 [1.3.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.3.0
