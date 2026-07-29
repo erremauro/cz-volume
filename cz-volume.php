@@ -2,7 +2,7 @@
 /**
  * Plugin Name: CZ Volume
  * Description: Gestione volumi e capitoli con numerazione per volume.
- * Version: 1.4.2
+ * Version: 1.5.0
  * Author: Roberto Mauro
  * Text Domain: cz-volume
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CZ_VOLUME_VERSION', '1.4.2' );
+define( 'CZ_VOLUME_VERSION', '1.5.0' );
 define( 'CZ_VOLUME_DB_VERSION', '1.4.1' );
 define( 'CZ_VOLUME_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CZ_VOLUME_URL', plugin_dir_url( __FILE__ ) );
@@ -52,6 +52,7 @@ require_once CZ_VOLUME_PATH . 'includes/class-cz-volume-cpt.php';
 require_once CZ_VOLUME_PATH . 'includes/class-cz-volume-manager.php';
 require_once CZ_VOLUME_PATH . 'includes/class-cz-volume-admin.php';
 require_once CZ_VOLUME_PATH . 'includes/class-cz-volume-rest.php';
+require_once CZ_VOLUME_PATH . 'includes/class-cz-volume-shortcodes.php';
 
 class CZ_Volume_Plugin {
 	/**
@@ -74,6 +75,11 @@ class CZ_Volume_Plugin {
 	 */
 	private $rest;
 
+	/**
+	 * @var CZ_Volume_Shortcodes
+	 */
+	private $shortcodes;
+
 	public static function instance() {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
@@ -89,8 +95,9 @@ class CZ_Volume_Plugin {
 
 	public function bootstrap() {
 		$this->maybe_upgrade_schema();
-		$this->manager = new CZ_Volume_Manager();
-		$this->rest    = new CZ_Volume_REST( $this->manager );
+		$this->manager    = new CZ_Volume_Manager();
+		$this->rest       = new CZ_Volume_REST( $this->manager );
+		$this->shortcodes = new CZ_Volume_Shortcodes( $this->manager );
 		add_action( 'before_delete_post', array( $this, 'cleanup_volume_relations' ) );
 
 		if ( is_admin() ) {

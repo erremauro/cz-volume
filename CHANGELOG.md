@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] 2026-07-29
+### Added
+- Navigazione "Capitolo Precedente/Successivo" aggiunta automaticamente subito dopo il blocco "Pagine" dei post che appartengono a un Volume (via filtro `wp_link_pages`, cosi da non richiedere modifiche ai template del tema), disattivabile con il filtro `cz_volume_auto_append_nav`.
+- Nuovo shortcode `[cz_volume_chapters_nav]` per posizionare la navigazione manualmente in un punto specifico del contenuto (dedupe automatico con l'append automatico), con attributi `volume_id`, `post_id`, `prev_label`, `next_label`.
+- Nuovo asset `assets/frontend.css` (con relativo `.min.css`), caricato solo nelle pagine dove la navigazione è effettivamente mostrata.
+### Changed
+- `CZ_Volume_Manager::get_volumes_by_post()` ora usa cache transient (`12h`, invalidata automaticamente sulle modifiche alle relazioni), coerente con la cache già esistente su `get_chapters()`.
+
 ## [1.4.2] 2026-06-12
 ### Changed
 - Updated author metadata to Roberto Mauro.
@@ -87,7 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cleanup controllato in deactivation/uninstall.
 
 
-[Unreleased]: https://github.com/erremauro/cz-volume/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/erremauro/cz-volume/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.5.0
 [1.4.2]: https://github.com/erremauro/cz-volume/releases/tag/v1.4.2
 [1.4.1]: https://github.com/erremauro/cz-volume/releases/tag/v1.4.1
 [1.4.0]: https://github.com/erremauro/cz-volume/releases/tag/v1.4.0

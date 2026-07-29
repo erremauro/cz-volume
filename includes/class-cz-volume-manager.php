@@ -90,6 +90,12 @@ class CZ_Volume_Manager {
 			return array();
 		}
 
+		$cache_key = 'cz_volume_post_' . $post_id;
+		$cached    = get_transient( $cache_key );
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
 		$sql = $this->wpdb->prepare(
 			"SELECT i.volume_id, i.post_id, i.chapter_number, i.entry_type, i.section_label, i.is_primary, i.position, v.post_title AS volume_title
 			FROM {$this->table_name} i
@@ -103,12 +109,14 @@ class CZ_Volume_Manager {
 
 		$results = $this->wpdb->get_results( $sql, ARRAY_A );
 		if ( ! is_array( $results ) ) {
-			return array();
+			$results = array();
 		}
 		foreach ( $results as &$row ) {
 			$row = $this->normalize_chapter_row( $row );
 		}
 		unset( $row );
+
+		set_transient( $cache_key, $results, self::CACHE_TTL );
 
 		return $results;
 	}
@@ -168,6 +176,7 @@ class CZ_Volume_Manager {
 				)
 			);
 			$this->clear_cache_many( $affected_volume_ids );
+			$this->clear_post_cache( $post_id );
 
 			return false !== $updated;
 		}
@@ -186,6 +195,7 @@ class CZ_Volume_Manager {
 		);
 
 		$this->clear_cache_many( $affected_volume_ids );
+		$this->clear_post_cache( $post_id );
 
 		return false !== $inserted;
 	}
@@ -196,7 +206,8 @@ class CZ_Volume_Manager {
 			return false;
 		}
 
-		$position = 1;
+		$position          = 1;
+		$affected_post_ids = array();
 		foreach ( $ordered_post_ids as $post_id ) {
 			$post_id = absint( $post_id );
 			if ( ! $post_id ) {
@@ -213,10 +224,12 @@ class CZ_Volume_Manager {
 					$post_id
 				)
 			);
+			$affected_post_ids[] = $post_id;
 			$position++;
 		}
 
 		$this->clear_cache( $volume_id );
+		$this->clear_post_cache_many( $affected_post_ids );
 
 		return true;
 	}
@@ -237,6 +250,7 @@ class CZ_Volume_Manager {
 		);
 
 		$this->clear_cache( $volume_id );
+		$this->clear_post_cache( $post_id );
 
 		return false !== $deleted;
 	}
@@ -275,6 +289,7 @@ class CZ_Volume_Manager {
 		);
 
 		$this->clear_cache( $volume_id );
+		$this->clear_post_cache( $post_id );
 		return false !== $updated;
 	}
 
@@ -316,6 +331,7 @@ class CZ_Volume_Manager {
 		);
 
 		$this->clear_cache( $volume_id );
+		$this->clear_post_cache( $post_id );
 		return false !== $updated;
 	}
 
@@ -325,6 +341,13 @@ class CZ_Volume_Manager {
 			return false;
 		}
 
+		$affected_post_ids = $this->wpdb->get_col(
+			$this->wpdb->prepare(
+				"SELECT post_id FROM {$this->table_name} WHERE volume_id = %d",
+				$volume_id
+			)
+		);
+
 		$deleted = $this->wpdb->query(
 			$this->wpdb->prepare(
 				"DELETE FROM {$this->table_name} WHERE volume_id = %d",
@@ -333,6 +356,7 @@ class CZ_Volume_Manager {
 		);
 
 		$this->clear_cache( $volume_id );
+		$this->clear_post_cache_many( is_array( $affected_post_ids ) ? $affected_post_ids : array() );
 
 		return false !== $deleted;
 	}
@@ -341,6 +365,22 @@ class CZ_Volume_Manager {
 		$volume_id = absint( $volume_id );
 		if ( $volume_id ) {
 			delete_transient( 'cz_volume_' . $volume_id );
+		}
+	}
+
+	public function clear_post_cache( $post_id ) {
+		$post_id = absint( $post_id );
+		if ( $post_id ) {
+			delete_transient( 'cz_volume_post_' . $post_id );
+		}
+	}
+
+	private function clear_post_cache_many( array $post_ids ) {
+		$post_ids = array_unique( array_map( 'absint', $post_ids ) );
+		foreach ( $post_ids as $post_id ) {
+			if ( $post_id ) {
+				$this->clear_post_cache( $post_id );
+			}
 		}
 	}
 
@@ -372,6 +412,7 @@ class CZ_Volume_Manager {
 		}
 
 		$this->clear_cache_many( $affected_volume_ids );
+		$this->clear_post_cache( $post_id );
 
 		return true;
 	}
